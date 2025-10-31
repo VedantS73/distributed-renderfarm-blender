@@ -1,0 +1,199 @@
+.network-discovery {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.discovery-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.discovery-header h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.network-info {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #000;
+}
+
+.network-info h2 {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+}
+
+.control-section {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.network-button {
+  padding: 12px 30px;
+  font-size: 16px;
+  border: 1px solid #000;
+  background: #fff;
+  cursor: pointer;
+  font-weight: bold;
+  min-width: 150px;
+}
+
+.network-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.devices-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #000;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.devices-section h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.device-count {
+  font-size: 14px;
+}
+
+.devices-table-container {
+  overflow-x: auto;
+}
+
+.devices-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.devices-table th {
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: bold;
+  border-bottom: 2px solid #000;
+}
+
+.devices-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #000;
+}
+
+.no-devices {
+  text-align: center;
+  font-style: italic;
+  padding: 40px !important;
+}
+
+.control-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.control-btn {
+  padding: 8px 16px;
+  border: 1px solid #000;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status-bar {
+  padding: 15px;
+  border: 1px solid #000;
+  text-align: center;
+  font-weight: bold;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #000;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .network-discovery {
+    padding: 10px;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .control-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .control-btn {
+    width: 200px;
+  }
+  
+  .devices-table {
+    font-size: 12px;
+  }
+  
+  .devices-table th,
+  .devices-table td {
+    padding: 8px 4px;
+  }
+}
