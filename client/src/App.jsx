@@ -10,6 +10,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
 
   const API_BASE = 'http://localhost:5050/api';
+  // const API_BASE = '/api';
 
   const fetchStatus = useCallback(async () => {
     try {

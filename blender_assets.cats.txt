@@ -1,0 +1,20 @@
+# This is an Asset Catalog Definition file for Blender.
+#
+# Empty lines and lines starting with `#` will be ignored.
+# The first non-ignored line should be the version indicator.
+# Other lines are of the format "UUID:catalog/path/for/assets:simple catalog name"
+
+VERSION 1
+
+f901aac0-8aed-43de-9146-1db7f9e73b2d:Material:Material
+fb92a50f-6131-4350-8a58-8e998924b71f:Material/Floor:Material-Floor
+c298807a-1bcb-490d-a86c-b772a3d96f45:Material/Others:Material-Others
+a9a90740-a84a-44e4-a2b7-de7c987a7c10:Material/Wall:Material-Wall
+6525d9a2-8156-48b6-a1ce-250a5d146283:Material/Wood:Material-Wood
+24982e4a-516c-4ea9-aa7a-8d50383166c6:Object:Object
+f60065c5-4105-46ce-ab6d-c880867b6ee9:Object/Art Supplies:Object-Art Supplies
+24b7cb5f-7479-4e68-a8f8-67bdfb7ceb0c:Object/Decoration:Object-Decoration
+736b9027-adae-44c2-b058-001c67d45a3e:Object/Furniture:Object-Furniture
+9b87016a-01d4-450e-afb9-c8639cbe3680:Object/Others:Object-Others
+afda2966-bc58-44c1-8052-f3e4cb66a318:Object/Picture Frames:Object-Picture Frames
+8979af10-68ec-4f5a-8e15-161669446142:Object/Plants:Object-Plants
