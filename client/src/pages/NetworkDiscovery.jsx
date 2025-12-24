@@ -6,17 +6,13 @@ import {
   Card,
   Descriptions,
   Badge,
-  Space,
-  Statistic,
   Row,
   Col,
   message,
-  Spin,
   Typography,
 } from "antd";
 import {
   ReloadOutlined,
-  DeleteOutlined,
   WifiOutlined,
   DisconnectOutlined,
   SoundOutlined,
@@ -53,6 +49,23 @@ const NetworkDiscovery = () => {
     }
   }, [messageApi]);
 
+  // --- NEW: Poll Election Status ---
+  const checkElectionStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/election/status`);
+      const data = await response.json();
+
+      // Check if election is done (has a leader) and we have an assigned role
+      if (data.current_leader && data.my_role) {
+        messageApi.success(`Election finished. Role: ${data.my_role}`);
+        // Redirect to /Worker or /Leader based on response
+        navigate(`/node-manager`); 
+      }
+    } catch (error) {
+      console.error("Error checking election status:", error);
+    }
+  }, [navigate, messageApi]);
+
   const fetchDevices = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/devices`);
@@ -60,7 +73,7 @@ const NetworkDiscovery = () => {
 
       const devicesWithTimestamp = (data || []).map((device) => ({
         ...device,
-        timestamp: device.last_seen ? device.last_seen * 1000 : Date.now(), // convert seconds -> ms
+        timestamp: device.last_seen ? device.last_seen * 1000 : Date.now(),
       }));
 
       const sortedDevices = [...devicesWithTimestamp].sort((a, b) => {
@@ -69,8 +82,6 @@ const NetworkDiscovery = () => {
 
         if (aIsSelf) return -1;
         if (bIsSelf) return 1;
-
-        // Then sort by resource score descending
         return (b.resource_score || 0) - (a.resource_score || 0);
       });
 
@@ -92,10 +103,17 @@ const NetworkDiscovery = () => {
   useEffect(() => {
     if (isRunning) {
       fetchDevices();
-      const interval = setInterval(fetchDevices, 2000);
-      return () => clearInterval(interval);
+      checkElectionStatus();
+
+      const deviceInterval = setInterval(fetchDevices, 2000);
+      const electionInterval = setInterval(checkElectionStatus, 2000);
+
+      return () => {
+        clearInterval(deviceInterval);
+        clearInterval(electionInterval);
+      };
     }
-  }, [isRunning, fetchDevices]);
+  }, [isRunning, fetchDevices, checkElectionStatus]);
 
   const toggleNetwork = async () => {
     setLoading(true);
@@ -150,20 +168,17 @@ const NetworkDiscovery = () => {
     }
   };
 
-  // Check if device is online based on last update
   const isDeviceOnline = (device) => {
     if (!device.timestamp) return false;
-    const timeDiff = (Date.now() - device.timestamp) / 1000; // seconds
+    const timeDiff = (Date.now() - device.timestamp) / 1000;
     return timeDiff < 15;
   };
 
-  // Get seconds since last seen
   const getSecondsSinceLastSeen = (device) => {
     if (!device.timestamp) return 0;
     return Math.floor((Date.now() - device.timestamp) / 1000);
   };
 
-  // Ant Design Table Columns
   const columns = [
     {
       title: "PC Name",
@@ -187,15 +202,12 @@ const NetworkDiscovery = () => {
       dataIndex: "last_seen",
       key: "status",
       render: (text, record) => {
-        // Check if this is the local device
         if (record.name === localInfo.pcName && record.ip === localInfo.ip) {
           return <Badge status="warning" text="Self" />;
         }
-
         const online = isDeviceOnline(record);
         const secondsAgo = getSecondsSinceLastSeen(record);
         const tooltipText = `Last seen ${secondsAgo} seconds ago`;
-
         return (
           <span title={tooltipText}>
             {online ? (
@@ -213,9 +225,7 @@ const NetworkDiscovery = () => {
     <div>
       {contextHolder}
       <Row gutter={16}>
-        {/* Left Side - Controls and Info */}
         <Col span={12}>
-          {/* Info & Stats Row */}
           <Row gutter={16}>
             <Col span={24}>
               <Card title="Local Information" bordered={false}>
@@ -234,7 +244,6 @@ const NetworkDiscovery = () => {
             </Col>
           </Row>
 
-          {/* Controls */}
           <Card>
             <Row gutter={8}>
               <Col span={8}>
@@ -278,7 +287,6 @@ const NetworkDiscovery = () => {
           </Card>
         </Col>
 
-        {/* Right Side - Discovered Devices Table */}
         <Col span={12}>
           <Card title="Discovered Devices" bordered={false}>
             <Table
@@ -308,7 +316,7 @@ const NetworkDiscovery = () => {
                 ? "Leader Election"
                 : devices.length < 2
                 ? "Waiting for more devices..."
-                : "Leader Election"}
+                : "Manual Leader Election"}
             </Button>
           </Card>
         </Col>
