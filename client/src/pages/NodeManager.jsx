@@ -229,15 +229,25 @@ const StartRenderPage = () => {
       key: "role",
       width: 100,
       render: (_, record) => {
-        // We can use the electionDetails to check true roles if IP matches
+        const isSelf = record.name === localInfo.pcName && record.ip === localInfo.ip;
         let role = "Worker";
-        if(electionDetails && electionDetails.election_results && electionDetails.election_results.ring_topology) {
-            const node = electionDetails.election_results.ring_topology.find(n => n.ip === record.ip);
-            if(node) role = node.role;
+
+        if (electionDetails) {
+            // 1. Direct IP Check: Does this record's IP match the elected leader's IP?
+            if (electionDetails.current_leader === record.ip) {
+                role = "Leader";
+            } 
+            // 2. Self Check: If this is me, trust the backend 'my_role' flag
+            else if (isSelf && electionDetails.my_role) {
+                role = electionDetails.my_role;
+            }
+            // 3. Fallback: Check topology array if the above didn't catch it
+            else if (electionDetails.election_results?.ring_topology) {
+                const node = electionDetails.election_results.ring_topology.find(n => n.ip === record.ip);
+                if(node) role = node.role;
+            }
         }
 
-        const isSelf = record.name === localInfo.pcName && record.ip === localInfo.ip;
-        
         return (
           <Tag color={role === "Leader" ? "gold" : (isSelf ? "purple" : "blue")}>
             {role} {isSelf ? "(Me)" : ""}

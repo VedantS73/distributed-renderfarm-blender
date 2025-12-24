@@ -6,7 +6,6 @@ import { ThemeProvider, useTheme } from './ThemeContext';
 import NetworkDiscovery from './pages/NetworkDiscovery';
 import MyDevicePage from './pages/MyDevicePage';
 import LeaderElectionPage from './pages/LeaderElectionPage';
-import StartRenderPage from './pages/StartRenderPage';
 import NodeManager from './pages/NodeManager';
 
 const { Header, Content, Footer } = Layout;
@@ -65,7 +64,6 @@ const AppLayout = () => {
             <Route path="/" element={<MyDevicePage />} />
             <Route path="/discovery" element={<NetworkDiscovery />} />
             <Route path="/leaderelection" element={<LeaderElectionPage />} />
-            <Route path="/start-render" element={<StartRenderPage />} />
             <Route path="/node-manager" element={<NodeManager />} />
           </Routes>
         </div>
