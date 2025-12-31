@@ -87,6 +87,12 @@ class NetworkDiscoveryService:
 
     def stop(self):
         self.running = False
+        self.election_active = False
+        self.current_leader = None
+        self.my_role = "Worker"
+        self.ring_successor = "Undefined"
+        self.election_results = None
+
         if self.socket: self.socket.close()
 
     def broadcast_loop(self):
