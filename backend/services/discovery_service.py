@@ -23,7 +23,7 @@ class NetworkDiscoveryService:
         # LCR / Election State
         self.ring_successor = None
         self.current_leader = None
-        self.my_role = "Undefined"
+        self.ring_successor = "Undefined"
         self.election_active = False
         self.election_results = None
 
@@ -114,15 +114,25 @@ class NetworkDiscoveryService:
                         name, ip, score = parts[1], parts[2], int(parts[3])
                         self.add_device(name, ip, score)
                 
+                elif msg.startswith("ELECTION_INIT:"):
+                                # Format: ELECTION_INIT:INITIATOR_IP:INITIATOR_NAME
+                                parts = msg.split(":")
+                                if len(parts) >= 3:
+                                    initiator_ip = parts[1]
+                                    # Don't process my own election initiation broadcast
+                                    if initiator_ip != self.local_ip:
+                                        # Run election simulation when receiving init from another node
+                                        self.run_election_simulation()
+            
                 elif msg.startswith("ELECTION:"):
-                    # Format: ELECTION:LEADER_IP:LEADER_NAME
-                    parts = msg.split(":")
-                    if len(parts) >= 3:
-                        leader_ip, leader_name = parts[1], parts[2]
-                        self.current_leader = leader_ip
-                        self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
-                        self.election_active = True
-                        
+                        # Format: ELECTION:LEADER_IP:LEADER_NAME
+                        parts = msg.split(":")
+                        if len(parts) >= 3:
+                            leader_ip, leader_name = parts[1], parts[2]
+                            self.current_leader = leader_ip
+                            self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
+                            self.election_active = True
+                            
             except:
                 continue
 
@@ -158,11 +168,29 @@ class NetworkDiscoveryService:
             
         return all_nodes
 
-    def run_election_simulation(self):
+    def initiate_election(self):
         """
         Simulates the LCR algorithm to return the state to the API.
         In a real scenario, this would involve passing tokens between nodes.
         Here we calculate the deterministic result based on the document's rules.
+        """
+
+        # broadcast election initiation
+        try:
+            msg = f"ELECTION_INIT:{self.local_ip}:{self.pc_name}"
+            for addr in self.get_broadcast_addresses():
+                try:
+                    self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+                except:
+                    pass
+        except Exception as e:
+            print(f"Error broadcasting election initiation: {e}")
+        
+    
+    def run_election_simulation(self):
+        """
+        Runs a local simulation of the LCR election algorithm.
+        This is a simplification for demonstration purposes.
         """
         # 1. Establish Ring
         ring_order_ips = self.calculate_ring_topology()

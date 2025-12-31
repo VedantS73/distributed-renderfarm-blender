@@ -53,6 +53,16 @@ def stop():
 def get_devices():
     return jsonify(discovery.get_devices())
 
+@api.get("/status_listener")
+def status_listener():
+    return jsonify({
+        "my_role": discovery.my_role,
+        "leader": discovery.current_leader,
+        "successor": discovery.ring_successor,
+        "election_active": discovery.election_active,
+        "election_results": discovery.election_results
+    })
+
 @api.get("/status")
 def status():
     return jsonify({
@@ -76,15 +86,18 @@ def start_election():
     """
     if not discovery.running:
         return jsonify({"error": "Discovery service is not running. Start it first."}), 400
-
-    # Recalculate scores and topology based on current network state
-    election_result = discovery.run_election_simulation()
     
-    return jsonify({
-        "status": "Election Completed",
-        "message": "Ring established and Leader elected based on Composite ID (Score, IP)",
-        "data": election_result
-    })
+    # Broadcast election start to all devices
+    discovery.initiate_election()
+
+    # # Recalculate scores and topology based on current network state
+    # election_result = discovery.run_election_simulation()
+    
+    # return jsonify({
+    #     "status": "Election Completed",
+    #     "message": "Ring established and Leader elected based on Composite ID (Score, IP)",
+    #     "data": election_result
+    # })
 
 @api.get("/election/status")
 def get_election_status():
