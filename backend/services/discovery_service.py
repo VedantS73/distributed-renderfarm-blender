@@ -182,8 +182,7 @@ class NetworkDiscoveryService:
             self.ring_successor = successor_ip
         except ValueError:
             self.ring_successor = self.local_ip
-        
-        print("alll nodessssss-----", all_nodes)
+            print(f"[{self.local_ip}] Could not find my IP in the ring. Setting successor to self.")
         return all_nodes
 
     def initiate_election(self):
@@ -212,8 +211,13 @@ class NetworkDiscoveryService:
         """
         Runs the LCR election algorithm by sending tokens around the ring.
         """
+        print("============================================================")
+        print("======LEADER ELECTION SIMULATION HAS BEEN INITIATED =======")
+        print("============================================================")
+
         # 1. Establish Ring
         ring_order_ips = self.calculate_ring_topology()
+        print("=| RING DONE |==============================================>")
         print(f"[{self.local_ip}] Ring Order IPs:", ring_order_ips)
 
         # 2. Get Neighbour (Successor)
@@ -223,12 +227,14 @@ class NetworkDiscoveryService:
             
         successor_index = (ring_order_ips.index(self.local_ip) + 1) % len(ring_order_ips)
         self.ring_successor = ring_order_ips[successor_index]
+        print("=| SUCCESSOR DONE |==============================================>")
         print(f"[{self.local_ip}] Successor IP: {self.ring_successor}")
 
         # 3. Run LCR By Sending my UID (score, IP) around the ring
+        print("=| STARTING LCR |==============================================>")
         if not self.participant:
             self.participant = True
-            print(f"[{self.local_ip}] Sending initial LCR token with my score={self.current_score}, IP={self.local_ip}")
+            print(f"[{self.local_ip}] IS Sending initial LCR token with my score={self.current_score}, IP={self.local_ip}")
             self.send_lcr_token(self.current_score, self.local_ip, is_leader=False)
         
         self.election_results = {
@@ -260,7 +266,7 @@ class NetworkDiscoveryService:
         print(f"\n[{self.local_ip}] Received LCR token: score={mid_score}, ip={mid_ip}, is_leader={is_leader}")
         
         # Ensure ring topology is calculated
-        self.calculate_ring_topology()
+        # self.calculate_ring_topology()
         
         # Composite UID comparison: (score, ip)
         # Higher score wins, if equal then higher IP wins
@@ -317,6 +323,7 @@ class NetworkDiscoveryService:
             for addr in self.get_broadcast_addresses():
                 try:
                     self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+                    self.election_active = False
                 except:
                     pass
         except Exception as e:

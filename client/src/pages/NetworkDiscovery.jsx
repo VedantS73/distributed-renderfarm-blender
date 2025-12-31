@@ -77,6 +77,26 @@ const NetworkDiscovery = () => {
     }
   }, []);
 
+  const sendCallAndRedirect = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/election/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+      console.log("Election start response:", data);
+
+      if (data) {
+        navigate("/node-manager");
+      }
+    } catch (error) {
+      console.error("Error starting election:", error);
+    }
+  }, [navigate]);
+
   const fetchDevices = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/devices`);
@@ -322,7 +342,7 @@ const NetworkDiscovery = () => {
               size="large"
               disabled={!isRunning || devices.length < 2}
               block
-              onClick={() => navigate('/leaderelection')}
+              onClick={() => sendCallAndRedirect()}
             >
               {!isRunning
                 ? "Leader Election"
