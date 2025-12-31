@@ -196,6 +196,7 @@ class NetworkDiscoveryService:
             for addr in self.get_broadcast_addresses():
                 try:
                     self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+                    self.run_election_simulation()
                 except:
                     pass
         except Exception as e:

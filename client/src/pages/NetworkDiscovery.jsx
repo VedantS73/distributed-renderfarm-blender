@@ -66,6 +66,17 @@ const NetworkDiscovery = () => {
     }
   }, [navigate, messageApi]);
 
+  const fetchStatusListener = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/status_listener`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching status listener:", error);
+      return null;
+    }
+  }, []);
+
   const fetchDevices = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/devices`);
@@ -98,6 +109,7 @@ const NetworkDiscovery = () => {
 
   useEffect(() => {
     fetchStatus();
+    fetchStatusListener();
   }, [fetchStatus]);
 
   useEffect(() => {
