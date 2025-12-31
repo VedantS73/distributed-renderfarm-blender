@@ -200,10 +200,6 @@ class NetworkDiscoveryService:
                     pass
         except Exception as e:
             print(f"Error broadcasting election initiation: {e}")
-        
-        # Start my own election simulation
-        self.run_election_simulation()
-        
     
     def run_election_simulation(self):
         """
