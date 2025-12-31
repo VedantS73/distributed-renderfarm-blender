@@ -46,9 +46,9 @@ class NetworkDiscoveryService:
             
             # Simple weighted formula (can be tuned)
             # Higher free RAM/Disk and Lower CPU usage = Higher Score
-            ram_score = (ram.available / ram.total) * 50
+            disk_score = disk.free * 50
+            ram_score = ram.available * 30
             cpu_score = (100 - cpu_usage) * 30
-            disk_score = (disk.free / disk.total) * 20
             
             return int(ram_score + cpu_score + disk_score)
         except:
