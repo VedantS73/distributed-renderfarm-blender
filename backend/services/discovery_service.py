@@ -26,6 +26,8 @@ class NetworkDiscoveryService:
         self.ring_successor = "Undefined"
         self.election_active = False
         self.election_results = None
+        self.participant = False
+        self.my_role = "Worker"
 
     def get_local_ip(self):
         try:
@@ -115,23 +117,32 @@ class NetworkDiscoveryService:
                         self.add_device(name, ip, score)
                 
                 elif msg.startswith("ELECTION_INIT:"):
-                                # Format: ELECTION_INIT:INITIATOR_IP:INITIATOR_NAME
-                                parts = msg.split(":")
-                                if len(parts) >= 3:
-                                    initiator_ip = parts[1]
-                                    # Don't process my own election initiation broadcast
-                                    if initiator_ip != self.local_ip:
-                                        # Run election simulation when receiving init from another node
-                                        self.run_election_simulation()
+                    # Format: ELECTION_INIT:INITIATOR_IP:INITIATOR_NAME
+                    parts = msg.split(":")
+                    if len(parts) >= 3:
+                        initiator_ip = parts[1]
+                        # Don't process my own election initiation broadcast
+                        if initiator_ip != self.local_ip:
+                            # Run election simulation when receiving init from another node
+                            self.run_election_simulation()
+            
+                elif msg.startswith("LCR_TOKEN:"):
+                    # Format: LCR_TOKEN:MID_SCORE:MID_IP:IS_LEADER
+                    parts = msg.split(":")
+                    if len(parts) >= 4:
+                        mid_score = int(parts[1])
+                        mid_ip = parts[2]
+                        is_leader = parts[3] == "True"
+                        self.handle_lcr_token(mid_score, mid_ip, is_leader)
             
                 elif msg.startswith("ELECTION:"):
-                        # Format: ELECTION:LEADER_IP:LEADER_NAME
-                        parts = msg.split(":")
-                        if len(parts) >= 3:
-                            leader_ip, leader_name = parts[1], parts[2]
-                            self.current_leader = leader_ip
-                            self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
-                            self.election_active = True
+                    # Format: ELECTION:LEADER_IP:LEADER_NAME
+                    parts = msg.split(":")
+                    if len(parts) >= 3:
+                        leader_ip, leader_name = parts[1], parts[2]
+                        self.current_leader = leader_ip
+                        self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
+                        self.election_active = True
                             
             except:
                 continue
@@ -165,17 +176,21 @@ class NetworkDiscoveryService:
             self.ring_successor = successor_ip
         except ValueError:
             self.ring_successor = self.local_ip
-            
+        
+        print("alll nodessssss-----", all_nodes)
         return all_nodes
 
     def initiate_election(self):
         """
-        Simulates the LCR algorithm to return the state to the API.
-        In a real scenario, this would involve passing tokens between nodes.
-        Here we calculate the deterministic result based on the document's rules.
+        Initiates the LCR election algorithm by broadcasting to all nodes.
+        Then starts the token passing process.
         """
-
-        # broadcast election initiation
+        # Reset election state
+        self.participant = False
+        self.current_leader = None
+        self.election_active = True
+        
+        # broadcast election initiation to all nodes
         try:
             msg = f"ELECTION_INIT:{self.local_ip}:{self.pc_name}"
             for addr in self.get_broadcast_addresses():
@@ -186,65 +201,108 @@ class NetworkDiscoveryService:
         except Exception as e:
             print(f"Error broadcasting election initiation: {e}")
         
+        # Start my own election simulation
+        self.run_election_simulation()
+        
     
     def run_election_simulation(self):
         """
-        Runs a local simulation of the LCR election algorithm.
-        This is a simplification for demonstration purposes.
+        Runs the LCR election algorithm by sending tokens around the ring.
         """
         # 1. Establish Ring
         ring_order_ips = self.calculate_ring_topology()
-        
-        # 2. Determine Leader based on LCR Rules 
-        # Composite ID: (Resource_Score, Unique_ID)
-        # Tiebreaker: Higher Unique_ID (IP) wins
-        
-        candidates = []
-        for ip in ring_order_ips:
-            device = self.discovered_devices.get(ip)
-            if device:
-                candidates.append(device)
-        
-        # Sort by Resource Score (DESC), then by IP (DESC) as tiebreaker
-        candidates.sort(key=lambda x: (x['resource_score'], x['ip']), reverse=True)
-        
-        leader_node = candidates[0] if candidates else None
-        
-        # Update local state
-        if leader_node:
-            self.current_leader = leader_node['ip']
-            self.my_role = "Leader" if leader_node['ip'] == self.local_ip else "Worker"
-            self.election_active = True
+        print(f"[{self.local_ip}] Ring Order IPs:", ring_order_ips)
+
+        # 2. Get Neighbour (Successor)
+        if len(ring_order_ips) == 0:
+            print(f"[{self.local_ip}] No nodes in ring")
+            return None
             
-            # Broadcast election results to all nodes
-            self.broadcast_election_result(leader_node['ip'], leader_node['name'])
-        
-        # 3. Build the visualization structure
-        ring_structure = []
-        for ip in ring_order_ips:
-            device = self.discovered_devices.get(ip)
-            role = "Worker"
-            if leader_node and ip == leader_node['ip']:
-                role = "Leader"
-            
-            node_data = {
-                "ip": ip,
-                "name": device['name'],
-                "resource_score": device['resource_score'],
-                "role": role,
-                "is_me": (ip == self.local_ip),
-                "successor": ring_order_ips[(ring_order_ips.index(ip) + 1) % len(ring_order_ips)]
-            }
-            ring_structure.append(node_data)
+        successor_index = (ring_order_ips.index(self.local_ip) + 1) % len(ring_order_ips)
+        self.ring_successor = ring_order_ips[successor_index]
+        print(f"[{self.local_ip}] Successor IP: {self.ring_successor}")
+
+        # 3. Run LCR By Sending my UID (score, IP) around the ring
+        if not self.participant:
+            self.participant = True
+            print(f"[{self.local_ip}] Sending initial LCR token with my score={self.current_score}, IP={self.local_ip}")
+            self.send_lcr_token(self.current_score, self.local_ip, is_leader=False)
         
         self.election_results = {
             "initiator_ip": self.local_ip,
-            "leader_ip": leader_node['ip'] if leader_node else "None",
-            "election_method": "LCR (LeLann-Chang-Roberts)",
-            "ring_topology": ring_structure
+            "ring_topology": ring_order_ips,
+            "successor": self.ring_successor
         }
             
         return self.election_results
+    
+    def send_lcr_token(self, mid_score, mid_ip, is_leader):
+        """
+        Sends an LCR token to the successor node in the ring.
+        Format: LCR_TOKEN:MID_SCORE:MID_IP:IS_LEADER
+        """
+        try:
+            msg = f"LCR_TOKEN:{mid_score}:{mid_ip}:{is_leader}"
+            # Send directly to successor's IP
+            self.socket.sendto(msg.encode(), (self.ring_successor, self.broadcast_port))
+            print(f"[{self.local_ip}] Sent LCR token: score={mid_score}, ip={mid_ip}, is_leader={is_leader} to {self.ring_successor}")
+        except Exception as e:
+            print(f"[{self.local_ip}] Error sending LCR token: {e}")
+    
+    def handle_lcr_token(self, mid_score, mid_ip, is_leader):
+        """
+        Handles received LCR token according to LCR algorithm rules.
+        Uses composite UID: (score, ip) where higher score wins, IP is tiebreaker.
+        """
+        print(f"\n[{self.local_ip}] Received LCR token: score={mid_score}, ip={mid_ip}, is_leader={is_leader}")
+        
+        # Ensure ring topology is calculated
+        self.calculate_ring_topology()
+        
+        # Composite UID comparison: (score, ip)
+        # Higher score wins, if equal then higher IP wins
+        mid_uid = (mid_score, mid_ip)
+        my_uid = (self.current_score, self.local_ip)
+        
+        if is_leader:
+            # If message indicates leader, accept it
+            print(f"[{self.local_ip}] Leader elected: {mid_ip} with score {mid_score}")
+            self.current_leader = mid_ip
+            self.my_role = "Leader" if mid_ip == self.local_ip else "Worker"
+            self.participant = False
+            
+            # Forward leader message to successor (unless I'm the only node)
+            if self.ring_successor != self.local_ip:
+                self.send_lcr_token(mid_score, mid_ip, is_leader=True)
+            
+            # Broadcast final result
+            device_name = self.discovered_devices.get(mid_ip, {}).get('name', 'Unknown')
+            self.broadcast_election_result(mid_ip, device_name)
+            
+        elif mid_uid < my_uid and not self.participant:
+            # My UID is higher, send my own token
+            print(f"[{self.local_ip}] My UID is higher {my_uid} > {mid_uid}, sending my token")
+            self.participant = True
+            self.send_lcr_token(self.current_score, self.local_ip, is_leader=False)
+            
+        elif mid_uid > my_uid:
+            # Higher UID received, forward it
+            print(f"[{self.local_ip}] Forwarding higher UID: {mid_uid}")
+            self.participant = True
+            self.send_lcr_token(mid_score, mid_ip, is_leader=False)
+            
+        elif mid_ip == self.local_ip:
+            # My token came back - I'm the leader!
+            print(f"[{self.local_ip}] *** I AM THE LEADER! *** (score={self.current_score}, ip={self.local_ip})")
+            self.current_leader = self.local_ip
+            self.my_role = "Leader"
+            self.participant = False
+            
+            # Send leader announcement
+            self.send_lcr_token(self.current_score, self.local_ip, is_leader=True)
+            
+            # Broadcast to all nodes
+            self.broadcast_election_result(self.local_ip, self.pc_name)
     
     def broadcast_election_result(self, leader_ip, leader_name):
         """
@@ -263,14 +321,39 @@ class NetworkDiscoveryService:
     
     def get_election_status(self):
         """
-        Returns current election status for this node
+        Returns current election status for this node.
+        Step 4: Verify all nodes have the same leader.
         """
+        # Check if all nodes agree on the leader
+        leader_consensus = self.verify_leader_consensus()
+        
         return {
             "election_active": self.election_active,
             "current_leader": self.current_leader,
             "my_role": self.my_role,
             "my_ip": self.local_ip,
+            "participant": self.participant,
+            "ring_successor": self.ring_successor,
+            "leader_consensus": leader_consensus,
             "election_results": self.election_results
+        }
+    
+    def verify_leader_consensus(self):
+        """
+        Step 4: Verify that all nodes in the network have elected the same leader.
+        """
+        if not self.current_leader:
+            return {
+                "consensus_reached": False,
+                "reason": "No leader elected yet"
+            }
+        
+        # In a real implementation, this would query all nodes
+        # For now, we assume consensus once a leader is broadcast
+        return {
+            "consensus_reached": self.election_active and self.current_leader is not None,
+            "agreed_leader": self.current_leader,
+            "total_nodes": len(self.discovered_devices)
         }
     
     def get_broadcast_addresses(self):

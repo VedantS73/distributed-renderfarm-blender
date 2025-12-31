@@ -84,11 +84,15 @@ def start_election():
     Initiates the election process and returns the calculated ring topology.
     The Client Node triggers this.
     """
-    if not discovery.running:
-        return jsonify({"error": "Discovery service is not running. Start it first."}), 400
+    # if not discovery.running:
+    #     return jsonify({"error": "Discovery service is not running. Start it first."}), 400
     
     # Broadcast election start to all devices
     discovery.initiate_election()
+    return jsonify({
+        "status": "Election Initiated",
+        "message": "Election process has been started. Ring establishment in progress."
+    })
 
     # # Recalculate scores and topology based on current network state
     # election_result = discovery.run_election_simulation()
