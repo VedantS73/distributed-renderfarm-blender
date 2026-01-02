@@ -161,48 +161,6 @@ const StartRenderPage = () => {
     }
   };
 
-  // --- File Upload Logic ---
-
-  const handleCustomUpload = async ({ file, onSuccess, onError }) => {
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const response = await fetch(`${API_BASE}/upload-blend`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error("Upload failed");
-      
-      const data = await response.json();
-      
-      const processedDetails = {
-        filename: file.name,
-        size: (file.size / 1024 / 1024).toFixed(2) + " MB",
-        objects: data.objects || 12, 
-        vertices: data.vertices || "1.2M",
-        frames: data.frames || "1 - 250",
-        estimated_memory: "4.2 GB"
-      };
-
-      setFileDetails(processedDetails);
-      messageApi.success(`${file.name} uploaded successfully`);
-      onSuccess("ok");
-    } catch (error) {
-      console.error(error);
-      messageApi.error(`${file.name} upload failed.`);
-      onError(error);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const removeFile = () => {
-    setFileDetails(null);
-  };
-
   const proceedToRender = () => {
     if(!isRunning) {
         messageApi.warning("Please enter the network before proceeding.");
@@ -278,67 +236,6 @@ const StartRenderPage = () => {
     },
   ];
 
-  // --- Left Panel Content Generators ---
-
-  const renderLeaderPanel = () => {
-    return !fileDetails ? (
-        <Card title="Upload Project File" bordered={false} style={{ minHeight: 400 }}>
-          <Dragger 
-            customRequest={handleCustomUpload} 
-            showUploadList={false}
-            accept=".blend"
-            disabled={uploading}
-            style={{ padding: '40px 0' }}
-          >
-            <p className="ant-upload-drag-icon">
-              <InboxOutlined style={{ color: '#1890ff' }} />
-            </p>
-            <p className="ant-upload-text">Click or drag .blend file to this area</p>
-            <p className="ant-upload-hint">
-              You are the <strong>Leader</strong>. Upload the file to distribute tasks.
-            </p>
-          </Dragger>
-        </Card>
-      ) : (
-        <Card 
-            title={
-                <Space>
-                    <FileOutlined />
-                    {fileDetails.filename}
-                </Space>
-            } 
-            extra={
-                <Button type="text" danger icon={<DeleteOutlined />} onClick={removeFile}>
-                    Remove
-                </Button>
-            }
-        >
-            <Descriptions bordered column={1} size="small">
-                <Descriptions.Item label="File Size">{fileDetails.size}</Descriptions.Item>
-                <Descriptions.Item label="Total Objects">{fileDetails.objects}</Descriptions.Item>
-                <Descriptions.Item label="Total Vertices">{fileDetails.vertices}</Descriptions.Item>
-                <Descriptions.Item label="Frame Range">{fileDetails.frames}</Descriptions.Item>
-                <Descriptions.Item label="Est. VRAM Req">{fileDetails.estimated_memory}</Descriptions.Item>
-            </Descriptions>
-
-            <Divider />
-
-            <div style={{ textAlign: 'center', marginTop: 20 }}>
-                <Button 
-                    type="primary" 
-                    size="large" 
-                    icon={<PlayCircleOutlined />} 
-                    onClick={proceedToRender}
-                    block
-                    style={{ height: '50px', fontSize: '18px' }}
-                >
-                    Distribute Tasks
-                </Button>
-            </div>
-        </Card>
-      );
-  };
-
   const renderWorkerPanel = () => {
     return (
         <Card bordered={false} style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -407,7 +304,7 @@ const StartRenderPage = () => {
 
           {/* Conditional Render Logic */}
           {isRunning && electionDetails ? (
-               electionDetails.my_role === 'Leader' ? renderLeaderPanel() : renderWorkerPanel()
+              renderWorkerPanel()
           ) : (
                // Default empty state if network is off
                <Card bordered={false} style={{ minHeight: 400 }}>

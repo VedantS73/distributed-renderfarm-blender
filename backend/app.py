@@ -11,6 +11,11 @@ def create_app():
     # Register API routes
     app.register_blueprint(api)
 
+    @app.errorhandler(404)
+    def not_found(e):
+        # This catches any route that isn't an API or a real static file
+        return send_from_directory(app.static_folder, "index.html")
+
     # Frontend routes
     @app.route("/")
     def serve_root():
@@ -18,9 +23,17 @@ def create_app():
 
     @app.route("/<path:path>")
     def serve_static(path):
+        # Don't serve API routes from static handler
+        if path.startswith("api/"):
+            return "Not Found", 404
+        
         file_path = os.path.join(app.static_folder, path)
-        if os.path.exists(file_path):
+        
+        # If the file exists, serve it
+        if os.path.exists(file_path) and os.path.isfile(file_path):
             return send_from_directory(app.static_folder, path)
+        
+        # Otherwise, serve index.html for all other routes
         return send_from_directory(app.static_folder, "index.html")
 
     return app

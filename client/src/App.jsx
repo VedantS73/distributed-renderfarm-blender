@@ -32,6 +32,14 @@ const AppLayout = () => {
       key: '/leaderelection',
       label: 'Leader Election',
     },
+    {
+      key: '/node-manager',
+      label: 'Node Manager',
+    },
+    {
+      key: '/newjob',
+      label: 'New Job',
+    }
   ];
 
   return (

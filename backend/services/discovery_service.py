@@ -19,6 +19,8 @@ class NetworkDiscoveryService:
         
         # Initial score calculation
         self.current_score = 0
+
+        self.ring_topology = []
         
         # LCR / Election State
         self.ring_successor = None
@@ -183,6 +185,15 @@ class NetworkDiscoveryService:
         except ValueError:
             self.ring_successor = self.local_ip
             print(f"[{self.local_ip}] Could not find my IP in the ring. Setting successor to self.")
+        
+        self.ring_topology = []
+        for idx, ip in enumerate(all_nodes):
+            self.ring_topology.append({
+                "position": idx + 1,
+                "ip": ip,
+                "name": self.discovered_devices[ip]['name'],
+                "resource_score": self.discovered_devices[ip]['resource_score']
+            })
         return all_nodes
 
     def initiate_election(self):
@@ -336,6 +347,14 @@ class NetworkDiscoveryService:
         """
         # Check if all nodes agree on the leader
         leader_consensus = self.verify_leader_consensus()
+
+        topology_with_status = []
+        for node in self.ring_topology:
+            # Copy the node dict to avoid modifying the original self.ring_topology state permanently
+            node_data = node.copy()
+            # Check if this node is the current leader
+            node_data['is_leader'] = (node['ip'] == self.current_leader)
+            topology_with_status.append(node_data)
         
         return {
             "election_active": self.election_active,
@@ -345,7 +364,8 @@ class NetworkDiscoveryService:
             "participant": self.participant,
             "ring_successor": self.ring_successor,
             "leader_consensus": leader_consensus,
-            "election_results": self.election_results
+            "election_results": self.election_results,
+            "ring_topology": topology_with_status
         }
     
     def verify_leader_consensus(self):

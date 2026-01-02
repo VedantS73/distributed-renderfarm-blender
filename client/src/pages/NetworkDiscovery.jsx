@@ -57,9 +57,12 @@ const NetworkDiscovery = () => {
 
       // Check if election is done (has a leader) and we have an assigned role
       if (data.current_leader && data.my_role) {
-        messageApi.success(`Election finished. Role: ${data.my_role}`);
-        // Redirect to /Worker or /Leader based on response
-        navigate(`/node-manager`); 
+        messageApi.success(`Election finished. Role: ${data.my_role}.. Redirecting to Node Manager in 2 seconds...`);
+        console.log("Redirecting to Node Manager...");
+        // wait for 2 seconds before redirecting
+        setTimeout(() => {
+          navigate("/node-manager");
+        }, 2000);
       }
     } catch (error) {
       console.error("Error checking election status:", error);
@@ -90,7 +93,12 @@ const NetworkDiscovery = () => {
       console.log("Election start response:", data);
 
       if (data) {
-        navigate("/node-manager");
+        console.log("Redirecting to Node Manager...");
+        messageApi.success(`Election is already in progress/processed.`);
+        // wait for 2 seconds before redirecting
+        setTimeout(() => {
+          navigate("/node-manager");
+        }, 2000);
       }
     } catch (error) {
       console.error("Error starting election:", error);

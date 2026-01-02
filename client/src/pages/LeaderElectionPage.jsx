@@ -37,25 +37,31 @@ const ElectionResultPage = () => {
   const [error, setError] = useState(null);
 
   // --- Data Processing Helper ---
-  const processTopologyToGraph = (topology) => {
-    if (!topology) return { nodes: [], links: [] };
+  const processTopologyToGraph = (topology, myIp) => {
+    if (!topology || !Array.isArray(topology)) return { nodes: [], links: [] };
 
     const nodes = topology.map((node) => ({
       id: node.ip,
-      name: node.name,
-      val: node.role === "Leader" ? 30 : 15, // Leader is visually larger
-      color: node.role === "Leader" ? "#FAAD14" : (node.is_me ? "#722ED1" : "#1890ff"), // Gold, Purple, Blue
-      role: node.role,
+      name: node.name || node.ip, // Fallback to IP if name missing
+      val: node.is_leader ? 30 : 15, // Leader is larger
+      // Color priority: Leader (Gold) > Me (Purple) > Worker (Blue)
+      color: node.is_leader ? "#FAAD14" : (node.ip === myIp ? "#722ED1" : "#1890ff"), 
+      role: node.is_leader ? "Leader" : "Worker",
       score: node.resource_score,
-      is_me: node.is_me,
+      is_me: node.ip === myIp,
       ip: node.ip
     }));
 
-    const links = topology.map((node) => ({
-      source: node.ip,
-      target: node.successor, // LCR Ring Connection
-      color: '#d9d9d9'
-    }));
+    // Generate Ring Links: Connect Node[i] -> Node[i+1]
+    const links = topology.map((node, index) => {
+      const nextIndex = (index + 1) % topology.length; // Wrap around to 0 for the last node
+      return {
+        source: node.ip,
+        target: topology[nextIndex].ip,
+        color: '#d9d9d9',
+        width: 2
+      };
+    });
 
     return { nodes, links };
   };
@@ -72,8 +78,9 @@ const ElectionResultPage = () => {
       const data = await response.json();
       setElectionData(data);
 
-      if (data.election_results && data.election_results.ring_topology) {
-        const gData = processTopologyToGraph(data.election_results.ring_topology);
+      // FIX: Use 'data.ring_topology' (the detailed list), not 'election_results.ring_topology'
+      if (data.ring_topology && Array.isArray(data.ring_topology)) {
+        const gData = processTopologyToGraph(data.ring_topology, data.my_ip);
         setGraphData(gData);
       }
     } catch (err) {
@@ -106,6 +113,16 @@ const ElectionResultPage = () => {
   useEffect(() => {
     checkElectionStatus();
   }, [checkElectionStatus]);
+
+  useEffect(() => {
+    if (graphRef.current) {
+      if (graphRef.current.d3Force('link')) {
+            graphRef.current.d3Force('link').distance(150); 
+        }
+        
+        graphRef.current.d3ReheatSimulation();
+    }
+  }, [graphData]);
 
   // --- Render Helpers ---
 
