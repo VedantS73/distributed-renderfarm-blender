@@ -7,6 +7,7 @@ import NetworkDiscovery from './pages/NetworkDiscovery';
 import MyDevicePage from './pages/MyDevicePage';
 import LeaderElectionPage from './pages/LeaderElectionPage';
 import NodeManager from './pages/NodeManager';
+import NewJobPage from './pages/NewJobPage';
 
 const { Header, Content, Footer } = Layout;
 
@@ -73,6 +74,7 @@ const AppLayout = () => {
             <Route path="/discovery" element={<NetworkDiscovery />} />
             <Route path="/leaderelection" element={<LeaderElectionPage />} />
             <Route path="/node-manager" element={<NodeManager />} />
+            <Route path="/newjob" element={<NewJobPage />} />
           </Routes>
         </div>
     </Layout>
