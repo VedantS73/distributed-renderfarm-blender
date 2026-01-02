@@ -184,7 +184,7 @@ const ElectionResultPage = () => {
       {/* Header */}
       <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
         <Col>
-           <Title level={2} style={{ margin: 0 }}>Cluster Topology</Title>
+           <Title level={3} style={{ margin: 0 }}>Cluster Topology</Title>
            <Text type="secondary">LCR Ring Consensus Visualization</Text>
         </Col>
         <Col>

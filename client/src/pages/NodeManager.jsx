@@ -1,39 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Table,
   Button,
   Card,
-  Descriptions,
   Badge,
   Space,
   Row,
   Col,
   message,
   Typography,
-  Upload,
   Tag,
-  Statistic,
-  Divider,
   Result,
-  Spin
 } from "antd";
 import {
-  ReloadOutlined,
   WifiOutlined,
-  DisconnectOutlined,
-  SoundOutlined,
-  InboxOutlined,
-  FileOutlined,
-  CheckCircleOutlined,
-  DeleteOutlined,
-  PlayCircleOutlined,
-  ClusterOutlined,
-  SyncOutlined
 } from "@ant-design/icons";
+import WorkerActivityPanel from "./renderer/WorkerActivityPanel";
+import ClusterStatus from "./components/ClusterStatus";
 
 const { Title, Text } = Typography;
-const { Dragger } = Upload;
 
 const StartRenderPage = () => {
   const navigate = useNavigate();
@@ -41,12 +26,7 @@ const StartRenderPage = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [localInfo, setLocalInfo] = useState({ pcName: "", ip: "" });
   
-  // Election State
   const [electionDetails, setElectionDetails] = useState(null);
-  
-  // File Upload State
-  const [fileDetails, setFileDetails] = useState(null);
-  const [uploading, setUploading] = useState(false);
 
   const [messageApi, contextHolder] = message.useMessage();
   const API_BASE = "http://localhost:5050/api";
@@ -238,31 +218,7 @@ const StartRenderPage = () => {
 
   const renderWorkerPanel = () => {
     return (
-        <Card bordered={false} style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Result
-                icon={<ClusterOutlined style={{ color: '#1890ff' }} />}
-                title="Worker Node Active"
-                subTitle="Waiting for Leader to initiate render job..."
-                extra={[
-                   <div key="info" style={{ textAlign: 'left', background: '#f5f5f5', padding: 20, borderRadius: 8 }}>
-                       <Descriptions title="Cluster Details" column={1} size="small">
-                            <Descriptions.Item label="My Role">
-                                <Tag color="blue">Worker</Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Current Leader">
-                                <Text code>{electionDetails?.current_leader || "Determining..."}</Text>
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Election Method">
-                                {electionDetails?.election_results?.election_method || "LCR"}
-                            </Descriptions.Item>
-                       </Descriptions>
-                   </div>
-                ]}
-            />
-            <div style={{ textAlign: 'center', marginTop: 20 }}>
-                 <Spin tip="Listening for tasks..." />
-            </div>
-        </Card>
+      <WorkerActivityPanel electionDetails={electionDetails} />
     );
   };
 
@@ -273,7 +229,7 @@ const StartRenderPage = () => {
         
         {/* --- LEFT COL: Conditional Interface based on Role --- */}
         <Col span={16}>
-          <Title level={3}>Project Setup</Title>
+          <Title level={3} style={{ marginTop: 0 }}>Node Manager</Title>
           
           {/* Network Toggle */}
           <Card size="small" style={{ marginBottom: 16 }}>
@@ -319,48 +275,14 @@ const StartRenderPage = () => {
         </Col>
 
         {/* --- RIGHT COL: Device List --- */}
-        <Col span={8}>
-           <Row justify="space-between" align="middle" style={{ marginBottom: 8, marginTop: 8 }}>
-             <Title level={4} style={{ margin: 0 }}>Cluster Status</Title>
-             <Space>
-                <Tag icon={<SyncOutlined spin={isRunning} />} color={isRunning ? "processing" : "default"}>
-                    {isRunning ? "Live" : "Stopped"}
-                </Tag>
-                <Button 
-                    icon={<ReloadOutlined />} 
-                    onClick={() => { fetchDevices(); fetchElectionStatus(); }} 
-                    size="small" 
-                    disabled={!isRunning}
-                >
-                    Refresh
-                </Button>
-             </Space>
-           </Row>
-
-          <Card bordered={false} bodyStyle={{ padding: 0 }}>
-            <Table
-              dataSource={devices}
-              columns={columns}
-              rowKey={(record) => `${record.name}-${record.ip}`}
-              locale={{
-                emptyText: isRunning
-                  ? "Scanning for neighbors..."
-                  : "Connect to network to find devices",
-              }}
-              pagination={false}
-              scroll={{ y: 500 }}
-            />
-          </Card>
-          
-          {isRunning && (
-              <div style={{ marginTop: 16, textAlign: 'right' }}>
-                  <Space size="large">
-                     <Statistic title="Nodes in Ring" value={Math.max(0, devices.length)} valueStyle={{ fontSize: 16 }} />
-                     <Statistic title="Total Compute Score" value={devices.reduce((acc, curr) => acc + (curr.resource_score || 0), 0)} valueStyle={{ fontSize: 16 }} />
-                  </Space>
-              </div>
-          )}
-        </Col>
+        <ClusterStatus 
+          localInfo={localInfo}
+          electionDetails={electionDetails}
+          devices={devices}
+          isRunning={isRunning}
+          fetchDevices={fetchDevices}
+          fetchElectionStatus={fetchElectionStatus}
+        />
       </Row>
     </div>
   );
