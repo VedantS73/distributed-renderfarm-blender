@@ -223,7 +223,7 @@ const StartRenderPage = () => {
   const uploadBlendFile = async (file) => {
     setUploading(true);
     const formData = new FormData();
-    formData.append('blend_file', file);
+    formData.append('file', file);
     
     try {
       const response = await fetch(`${API_BASE}/render/upload`, {

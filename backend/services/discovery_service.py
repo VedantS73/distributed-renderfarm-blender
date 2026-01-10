@@ -7,7 +7,7 @@ import psutil
 import os
 import json
 from datetime import datetime
-
+from .blend_service import BlendService
 class NetworkDiscoveryService:
     def __init__(self):
         self.broadcast_port = 8888
@@ -41,6 +41,19 @@ class NetworkDiscoveryService:
         self.my_role = "Worker"
         
         # Upload tracking
+        self.current_blend_file = {
+            "file_name": None,
+            "filepath": None,
+            "scene_name": None,
+            "start_frame": None,
+            "end_frame": None,
+            "samples": None,
+            "engine": None,
+            "res_x": None,
+            "res_y": None,
+            "output_format": None
+        }
+
         self.upload_status = {
             "uploading": False,
             "progress": 0,
@@ -233,6 +246,10 @@ class NetworkDiscoveryService:
             os.makedirs(upload_dir, exist_ok=True)
             
             filepath = os.path.join(upload_dir, filename)
+
+            # clear existing file if any
+            if os.path.exists(filepath):
+                os.remove(filepath)
             
             # Receive file data
             received = 0
@@ -270,6 +287,21 @@ class NetworkDiscoveryService:
             return {"success": False, "error": "File not found"}
         
         if self.my_role == "Leader":
+            # store in uploads directory
+            upload_dir = "uploads"
+            os.makedirs(upload_dir, exist_ok=True)
+            dest_path = os.path.join(upload_dir, os.path.basename(filepath))
+            with open(filepath, 'rb') as src_file:
+                with open(dest_path, 'wb') as dest_file:
+                    dest_file.write(src_file.read())
+            
+            self.current_blend_file = {
+                "filename": os.path.basename(filepath),
+                "filepath": dest_path,
+                "info": None  # You might want to extract blend info here if needed
+            }
+            print(f"[{self.local_ip}] Analyzed Blender file info: {blend_info}")
+            
             return {"success": False, "error": "I am the leader, no need to upload"}
         
         if not self.current_leader:
@@ -323,6 +355,13 @@ class NetworkDiscoveryService:
             
             self.upload_status["uploading"] = False
             self.upload_status["progress"] = 100
+
+            service = BlendService(blender_binary="blender")
+            blend_info = service.analyze_blend_file(filepath)
+            print(f"[{self.local_ip}] Analyzed Blender file info: {blend_info}")
+
+            self.current_blend_file = blend_info
+            print(f"[{self.local_ip}] Uploaded Blender file info: {blend_info}")
             
             if result.get("status") == "success":
                 return {
