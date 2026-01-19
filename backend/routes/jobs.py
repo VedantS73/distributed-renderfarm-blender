@@ -3,6 +3,8 @@ import uuid
 import datetime
 from backend.services.blender_service import BlenderService
 from werkzeug.utils import secure_filename
+import tempfile
+import os
 
 jobs_api = Blueprint("jobs_api", __name__, url_prefix="/api/jobs")
 
@@ -21,20 +23,23 @@ def create_job():
     filename = secure_filename(file.filename)
     if not filename.lower().endswith(".blend"):
         return jsonify({"error": "Invalid file type"}), 400
-    
+
     job_id = str(uuid.uuid4())
 
-    blend_file_path = f"/tmp/{job_id}.blend"
-    file.save(blend_file_path)
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".blend"
+    ) as tmp:
+        file.save(tmp.name)
+        blend_file_path = tmp.name
 
-    # analysis_result = blender.analyze(blend_file_path)
+    analysis_result = blender.analyze(blend_file_path)
 
-    analysis_result = {
-        "renderer": "Cycles",
-        "frame_start": 1,
-        "frame_end": 250,
-        "fps": 24,
-    }
+    # analysis_result = {
+    #     "renderer": "Cycles",
+    #     "frame_start": 1,
+    #     "frame_end": 250,
+    #     "fps": 24,
+    # }
 
     return jsonify(analysis_result), 201
-
