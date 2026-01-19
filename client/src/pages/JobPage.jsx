@@ -54,24 +54,33 @@ export default function JobPage() {
     checkElectionStatus();
   }, []);
 
-  /* ---------------- Upload Handler ---------------- */
-  const handleUpload = async ({ file }) => {
+/* ---------------- Upload Handler ---------------- */
+  const handleUpload = async (file) => {
     setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
 
     try {
       const response = await fetch(`${API_BASE}/jobs/analyze`, {
         method: "POST",
-        body: file,
+        body: formData,
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       setJobDetails(data);
       messageApi.success(`${file.name} uploaded successfully!`);
-      setUploading(false);
     } catch (error) {
       console.error("Error uploading file:", error);
+      messageApi.error("Upload failed.");
+    } finally {
+        setUploading(false);
     }
 
-    return false; // prevent default upload to server
+    return false;
   };
 
   /* ---------------- Submit Job ---------------- */
