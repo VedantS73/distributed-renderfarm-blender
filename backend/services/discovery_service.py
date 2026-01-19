@@ -132,17 +132,55 @@ class NetworkDiscoveryService:
             return False, str(e)
 
     def stop(self):
+        """Stops all services and clears all internal state data."""
         self.running = False
+        
+        # 1. Close Network Sockets
+        if self.socket:
+            try:
+                self.socket.close()
+            except:
+                pass
+            self.socket = None
+            
+        if self.file_server_socket:
+            try:
+                self.file_server_socket.close()
+            except:
+                pass
+            self.file_server_socket = None
+
+        # 2. Reset Election & Role State
         self.election_active = False
         self.current_leader = None
-        self.my_role = "Worker"
+        self.my_role = "Undefined"
         self.ring_successor = "Undefined"
+        self.participant = False
         self.election_results = None
         
-        if self.socket:
-            self.socket.close()
-        if self.file_server_socket:
-            self.file_server_socket.close()
+        # 3. Clear Discovered Data
+        self.discovered_devices = {}
+        self.ring_topology = []
+        
+        # 4. Clear Render and File State
+        self.render_jobs = {}
+        self.my_render_tasks = []
+        
+        # 5. Reset Upload Buffers
+        self.current_blend_file = {
+            "file_name": None, "filepath": None, "scene_name": None,
+            "start_frame": None, "end_frame": None, "samples": None,
+            "engine": None, "res_x": None, "res_y": None, "output_format": None
+        }
+
+        self.upload_status = {
+            "uploading": False,
+            "progress": 0,
+            "filename": None,
+            "error": None
+        }
+        
+        print(f"[{self.local_ip}] Discovery Service stopped and state cleared.")
 
     def broadcast_loop(self):
         """Broadcasts UDP Beacons every 3 seconds"""

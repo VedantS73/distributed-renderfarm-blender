@@ -33,9 +33,14 @@ export default function RingTopology({ nodes, myIp }) {
 
     // For 2 nodes, add curvature to show bidirectional ring
     if (nodes.length === 2) {
-      graphLinks.forEach((link, index) => {
-        link.curvature = index === 0 ? 0.3 : -0.3;
-      });
+      graphLinks[0].curvature = 0.3;
+      graphLinks[1] = {
+        source: nodes[1].ip,
+        target: nodes[0].ip,
+        color: '#d9d9d9',
+        width: 2,
+        curvature: 0.3,
+      };
     }
 
     setGraphData({
@@ -116,7 +121,7 @@ export default function RingTopology({ nodes, myIp }) {
       <ForceGraph2D
         ref={graphRef}
         graphData={graphData}
-        width={400}
+        width={800}
         height={400}
         nodeRelSize={8}
         linkColor="color"

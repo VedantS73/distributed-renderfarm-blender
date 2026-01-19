@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Card,
   Table,
@@ -8,22 +8,21 @@ import {
   Tag,
   Space,
   Divider,
+  Alert,
   message,
 } from "antd";
-import {
-  ReloadOutlined,
-  GlobalOutlined,
-} from "@ant-design/icons";
+import { ReloadOutlined, GlobalOutlined } from "@ant-design/icons";
 import { useNetwork } from "../context/NetworkContext";
 
 const { Title, Text } = Typography;
 
 export default function DeviceCheckPanel() {
   const { enterNetwork, isRunning, leaveNetwork } = useNetwork();
-
+  const API_BASE = "http://localhost:5050/api";
   const [loading, setLoading] = useState(true);
   const [override, setOverride] = useState(false);
   const [deviceData, setDeviceData] = useState(null);
+  const [leader, setLeader] = useState(null);
   const [checks, setChecks] = useState({
     blender: false,
     ffmpeg: false,
@@ -33,7 +32,7 @@ export default function DeviceCheckPanel() {
   const fetchDeviceInfo = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5050/api/my_device");
+      const res = await fetch(`${API_BASE}/my_device`);
       const data = await res.json();
 
       setDeviceData(data);
@@ -43,7 +42,7 @@ export default function DeviceCheckPanel() {
         storage: data.checks.disk_sufficient,
       });
 
-      message.success("System scan completed");
+      // message.success("System scan completed");
     } catch {
       message.error("Failed to fetch system data");
     } finally {
@@ -51,14 +50,28 @@ export default function DeviceCheckPanel() {
     }
   };
 
+  const checkElectionStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/election/status`);
+      const data = await response.json();
+
+      if (data.current_leader) {
+        setLeader(data.current_leader);
+      }
+    } catch (error) {
+      console.error("Error checking election status:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDeviceInfo();
-  }, []);
+    if (leader) return;
+    checkElectionStatus();
+  }, [leader, checkElectionStatus]);
 
   const allChecked = Object.values(checks).every(Boolean);
 
-  const formatGB = (b) =>
-    b ? `${(b / (1024 ** 3)).toFixed(1)} GB` : "0 GB";
+  const formatGB = (b) => (b ? `${(b / 1024 ** 3).toFixed(1)} GB` : "0 GB");
 
   /* ---------------- Tables ---------------- */
 
@@ -70,7 +83,7 @@ export default function DeviceCheckPanel() {
         {
           key: "Memory Usage",
           value: `${formatGB(deviceData.memory_used)} / ${formatGB(
-            deviceData.memory_total
+            deviceData.memory_total,
           )}`,
         },
         { key: "Disk Usage", value: `${Math.round(deviceData.disk_usage)}%` },
@@ -139,6 +152,19 @@ export default function DeviceCheckPanel() {
       }
       style={{ height: "100%" }}
     >
+      {leader && (
+        <Alert
+          title="Active Election Detected"
+          showIcon
+          description="The Leader has already been elected / election in progress."
+          type="success"
+          action={
+            <Button size="small" danger>
+              Go to Election
+            </Button>
+          }
+        />
+      )}
       {/* ---- System Info ---- */}
       <Divider orientation="left">System Overview</Divider>
       <Table
@@ -188,17 +214,10 @@ export default function DeviceCheckPanel() {
       )}
 
       {isRunning && (
-        <Button
-          danger
-          size="large"
-          onClick={leaveNetwork}
-          block
-        >
+        <Button danger size="large" onClick={leaveNetwork} block>
           Disconnect from Network
         </Button>
       )}
-      
     </Card>
-    
   );
 }
