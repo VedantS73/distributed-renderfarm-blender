@@ -31,6 +31,7 @@ export default function JobPage() {
   const [uploading, setUploading] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm();
+  const [selectedFile, setSelectedFile] = useState(null);
 
   /* ---------------- Election Status ---------------- */
   const checkElectionStatus = useCallback(async () => {
@@ -57,6 +58,7 @@ export default function JobPage() {
 /* ---------------- Upload Handler ---------------- */
   const handleUpload = async (file) => {
     setUploading(true);
+    setSelectedFile(file);
     const formData = new FormData();
     formData.append("file", file);
 
@@ -90,9 +92,27 @@ export default function JobPage() {
       return;
     }
 
-    console.log("Submitting render job to leader:", leader);
-    console.log("Job Details:", jobDetails);
-    messageApi.success("Job submitted successfully!");
+    const values = await form.validateFields();
+    const formData = new FormData();
+
+    formData.append("file", selectedFile);
+
+    Object.entries(values).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+
+    try {
+      const res = await fetch(`${API_BASE}/jobs/create`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error();
+
+      messageApi.success("Job sent to leader!");
+    } catch {
+      messageApi.error("Failed to submit job");
+    }
   };
 
   /* ---------------- Render ---------------- */
@@ -123,6 +143,10 @@ export default function JobPage() {
       <Dragger
         name="file"
         beforeUpload={handleUpload}
+        onRemove={() => {
+          setSelectedFile(null);
+          setJobDetails(null);
+        }}
         accept=".blend"
         maxCount={1}
         showUploadList={{ showRemoveIcon: true }}
