@@ -10,19 +10,22 @@ import {
   Form,
   InputNumber,
   Select,
+  Alert,
 } from "antd";
 import {
   ReloadOutlined,
   InboxOutlined,
 } from "@ant-design/icons";
 import { useNetwork } from "../context/NetworkContext";
+import LeaderControlPanel from "./components/LeaderControlPanel";
 
 const { Dragger } = Upload;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 export default function JobPage() {
-  const { isRunning } = useNetwork();
+  const { isRunning, localInfo } = useNetwork();
+  const [showLeaderPanel, setShowLeaderPanel] = useState(false);
   const API_BASE = "http://localhost:5050/api";
   const [loading, setLoading] = useState(true);
   const [leader, setLeader] = useState(null);
@@ -32,6 +35,7 @@ export default function JobPage() {
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm();
   const [selectedFile, setSelectedFile] = useState(null);
+  const [jobSubmitted, setJobSubmitted] = useState(false);
 
   /* ---------------- Election Status ---------------- */
   const checkElectionStatus = useCallback(async () => {
@@ -55,7 +59,7 @@ export default function JobPage() {
     checkElectionStatus();
   }, []);
 
-/* ---------------- Upload Handler ---------------- */
+  /* ---------------- Upload Handler ---------------- */
   const handleUpload = async (file) => {
     setUploading(true);
     setSelectedFile(file);
@@ -79,7 +83,7 @@ export default function JobPage() {
       console.error("Error uploading file:", error);
       messageApi.error("Upload failed.");
     } finally {
-        setUploading(false);
+      setUploading(false);
     }
 
     return false;
@@ -96,7 +100,6 @@ export default function JobPage() {
     const formData = new FormData();
 
     formData.append("file", selectedFile);
-
     Object.entries(values).forEach(([key, value]) => {
       formData.append(key, value);
     });
@@ -109,7 +112,8 @@ export default function JobPage() {
 
       if (!res.ok) throw new Error();
 
-      messageApi.success("Job sent to leader!");
+      messageApi.success("Job successfully submitted to leader 🚀");
+      setJobSubmitted(true);
     } catch {
       messageApi.error("Failed to submit job");
     }
@@ -132,80 +136,118 @@ export default function JobPage() {
     >
       {contextHolder}
 
-      <Title level={5} style={{ marginTop: 12 }}>Leader Elected</Title>
-      <Text strong>Leader IP:</Text> <Text>{leader || "N/A"}</Text>
-      <br />
-      <Text strong>Your Role:</Text> <Text>{myRole || "N/A"}</Text>
-      <Divider />
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="Leader Election Status"
+        description={
+          <>
+            <Text strong>Leader IP:</Text> <Text>{leader || "N/A"}</Text>
+            <br />
+            <Text strong>Your Role:</Text> <Text>{myRole || "N/A"}</Text>
+          </>
+        }
+        action={
+          isRunning && localInfo?.ip === leader ? (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => setShowLeaderPanel(prev => !prev)}
+            >
+              {showLeaderPanel ? "Hide Leader Controls" : "Open Leader Controls"}
+            </Button>
+          ) : null
+        }
+      />
 
-      {/* ---------------- Upload ---------------- */}
-      <Title level={5}>Upload your Blend File Here</Title>
-      <Dragger
-        name="file"
-        beforeUpload={handleUpload}
-        onRemove={() => {
-          setSelectedFile(null);
-          setJobDetails(null);
-        }}
-        accept=".blend"
-        maxCount={1}
-        showUploadList={{ showRemoveIcon: true }}
-        loading={uploading}
-        style={{ marginTop: 16 }}
-        >
-        <p className="ant-upload-drag-icon">
-            <InboxOutlined style={{ fontSize: 32, color: "#1890ff" }} />
-        </p>
-        <p className="ant-upload-text">
-            Click or drag your .blend file here to upload
-        </p>
-        <p className="ant-upload-hint">
-            Only one file is allowed. You can edit metadata after uploading.
-        </p>
-        </Dragger>
-
-      {/* ---------------- Job Metadata ---------------- */}
-      {jobDetails && (
-        <Form
-          form={form}
-          layout="vertical"
-          style={{ marginTop: 16 }}
-          initialValues={jobDetails}
-        >
-          <Form.Item label="Renderer" name="renderer">
-            <Select>
-              <Option value="Cycles">Cycles</Option>
-              <Option value="Eevee">Eevee</Option>
-              <Option value="Workbench">Workbench</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item label="Frame Start" name="frame_start">
-            <InputNumber min={1} />
-          </Form.Item>
-
-          <Form.Item label="Frame End" name="frame_end">
-            <InputNumber min={1} />
-          </Form.Item>
-
-          <Form.Item label="FPS" name="fps">
-            <InputNumber min={1} max={240} />
-          </Form.Item>
-        </Form>
+      {showLeaderPanel && (
+        <>
+          <LeaderControlPanel />
+          <Divider />
+        </>
       )}
 
-      <Divider />
+      {!jobSubmitted && (
+        <>
+          {/* ---------------- Upload ---------------- */}
+          <Title level={5}>Upload your Blend File Here</Title>
+          <Dragger
+            name="file"
+            beforeUpload={handleUpload}
+            onRemove={() => {
+              setSelectedFile(null);
+              setJobDetails(null);
+            }}
+            accept=".blend"
+            maxCount={1}
+            showUploadList={{ showRemoveIcon: true }}
+            loading={uploading}
+            style={{ marginTop: 16 }}
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined style={{ fontSize: 32, color: "#1890ff" }} />
+            </p>
+            <p className="ant-upload-text">
+              Click or drag your .blend file here to upload
+            </p>
+            <p className="ant-upload-hint">
+              Only one file is allowed. You can edit metadata after uploading.
+            </p>
+          </Dragger>
 
-      {/* ---------------- Submit Button ---------------- */}
-      <Button
-        type="primary"
-        size="large"
-        onClick={submitRenderJob}
-        block
-        disabled={!leader || !jobDetails}
-      >
-        Submit Job to Leader
-      </Button>
+          {/* ---------------- Job Metadata ---------------- */}
+          {jobDetails && (
+            <Form
+              form={form}
+              layout="vertical"
+              style={{ marginTop: 16 }}
+              initialValues={jobDetails}
+            >
+              <Form.Item label="Renderer" name="renderer">
+                <Select>
+                  <Option value="Cycles">Cycles</Option>
+                  <Option value="Eevee">Eevee</Option>
+                  <Option value="Workbench">Workbench</Option>
+                </Select>
+              </Form.Item>
+
+              <Form.Item label="Frame Start" name="frame_start">
+                <InputNumber min={1} />
+              </Form.Item>
+
+              <Form.Item label="Frame End" name="frame_end">
+                <InputNumber min={1} />
+              </Form.Item>
+
+              <Form.Item label="FPS" name="fps">
+                <InputNumber min={1} max={240} />
+              </Form.Item>
+            </Form>
+          )}
+
+          <Divider />
+
+          <Button
+            type="primary"
+            size="large"
+            onClick={submitRenderJob}
+            block
+            disabled={!leader || !jobDetails}
+          >
+            Submit Job to Leader
+          </Button>
+        </>
+      )}
+      {jobSubmitted && (
+        <Alert
+          type="success"
+          showIcon
+          message="Job Submitted Successfully"
+          description="Your render job has been sent to the leader node and is now queued for processing."
+        />
+      )}
+
     </Card>
   );
 }

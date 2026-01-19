@@ -8,11 +8,8 @@ const API_BASE = "http://localhost:5050/api";
 export const NetworkProvider = ({ children }) => {
   const [devices, setDevices] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [isElecRunning, setIsElecRunning] = useState(false);
   const [localInfo, setLocalInfo] = useState({ pcName: "", ip: "" });
   const [loading, setLoading] = useState(false);
-  const [currentLeader, setCurrentLeader] = useState(null);
-  const [myRole, setMyRole] = useState(null);
 
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -62,20 +59,6 @@ export const NetworkProvider = ({ children }) => {
     const interval = setInterval(fetchDevices, 2000);
     return () => clearInterval(interval);
   }, [isRunning, fetchDevices]);
-
-  const fetchElectionStatus = useCallback(async () => {
-    if (!isElecRunning) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/election/status`);
-      const data = await res.json();
-
-      setCurrentLeader(data.election_active);
-      setMyRole(data.my_role);
-    } catch {
-      console.error("Election status polling failed");
-    }
-  }, [isElecRunning]);
 
   const enterNetwork = async () => {
     setLoading(true);
