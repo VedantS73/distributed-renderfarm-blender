@@ -1,6 +1,6 @@
 import { Table, Badge, Empty, Typography, theme, Tooltip } from "antd";
 import { useNetwork } from "../../context/NetworkContext";
-import { WifiOutlined, DisconnectOutlined } from "@ant-design/icons";
+import { WifiOutlined, DisconnectOutlined, CrownFilled, BorderInnerOutlined } from "@ant-design/icons";
 
 const { Text } = Typography;
 
@@ -34,18 +34,43 @@ const DevicesSystemSidebar = ({ collapsed }) => {
   const columns = [
     {
       title: "#",
-      width: 24,
-      render: (_, record, index) => (
-        <Tooltip title={`Device ${index + 1}`}>
-          <div style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            backgroundColor: '#faad14',
+      width: 32,
+      align: 'center',
+      render: (_, record) => {
+        const role = record.my_role;
+        
+        let icon;
+        let tooltipTitle = role || "Undefined";
+
+        if (role === "Leader") {
+          icon = <CrownFilled style={{ color: '#ffec3d', fontSize: 16 }} />;
+        } else if (role === "Worker") {
+          icon = <div style={{ 
+            width: 10, 
+            height: 10, 
+            backgroundColor: '#722ed1', // Purple
+            borderRadius: '2px',
             margin: '0 auto'
-          }} />
-        </Tooltip>
-      ),
+          }} />;
+        } else {
+          // Default Undefined Yellow Dot
+          icon = <div style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: '#faad14', // Yellow
+            margin: '0 auto'
+          }} />;
+        }
+
+        return (
+          <Tooltip title={tooltipTitle}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              {icon}
+            </div>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Device",

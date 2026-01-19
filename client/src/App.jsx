@@ -16,6 +16,7 @@ import { NetworkProvider } from './context/NetworkContext';
 // --- Main Page Components ---
 import DeviceCheckPage from './pages/DeviceCheckPage';
 import ElectionPage from './pages/ElectionPage';
+import JobPage from './pages/JobPage';
 
 const { Header, Content, Sider } = Layout;
 
@@ -79,9 +80,7 @@ const AppLayout = () => {
     switch (currentPage) {
       case 'device': return <DeviceCheckPage />;
       case 'leaderelection': return <ElectionPage />;
-      case 'newjob': return <Card title="New Job"> {/* Placeholder for New Job Page */}
-        <p>New Job functionality coming soon!</p>
-      </Card>;
+      case 'newjob': return <JobPage />;
       default: return <DeviceCheckPage />;
     }
   };

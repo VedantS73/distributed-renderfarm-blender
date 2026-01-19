@@ -80,14 +80,26 @@ const [ring, setRing] = useState([]);
     <Card
       title={<Title level={4}>Leader Election</Title>}
       extra={
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={initialeLeaderElection}
-          loading={!loading}
-          disabled={electionActive}
-        >
-          {electionActive ? "Election Completed" : "Start Election"}
-        </Button>
+        <>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={initialeLeaderElection}
+            loading={loading}
+            disabled={electionActive}
+          >
+            {electionActive ? "Election Completed" : "Start Election"}
+          </Button>
+
+          {electionActive && (
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={initialeLeaderElection}
+              style={{ marginLeft: 8 }}
+              type="warning"
+            >
+            </Button>
+          )}
+        </>
       }
       style={{ height: "100%" }}
     >
