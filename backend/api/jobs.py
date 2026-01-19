@@ -129,7 +129,7 @@ def create_job():
     metadata_payload = {
         "job_id": job_id,
         "filename": filename,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.datetime.utcnow().isoformat(),
         "metadata": metadata
     }
 
