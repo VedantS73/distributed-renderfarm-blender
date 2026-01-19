@@ -102,7 +102,7 @@ export default function JobPage() {
     });
 
     try {
-      const res = await fetch(`${API_BASE}/jobs/create`, {
+      const res = await fetch(`${API_BASE}/jobs/upload`, {
         method: "POST",
         body: formData,
       });

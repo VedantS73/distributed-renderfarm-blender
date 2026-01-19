@@ -60,6 +60,8 @@ def upload_file():
     leader_ip = election_status.get("current_leader")
     leader_url = f"http://{leader_ip}:5050/api/jobs/create"
 
+    print(f"Forwarding job to leader at {leader_url}")
+
     # Save temporarily before forwarding
     with tempfile.NamedTemporaryFile(delete=False, suffix=".blend") as tmp:
         file.save(tmp.name)
