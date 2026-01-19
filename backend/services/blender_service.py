@@ -3,7 +3,6 @@ import json
 import tempfile
 import os
 from typing import Dict, Optional
-from .blender_render_info.blend_render_info import read_blend_rend_chunk
 
 class BlendServiceError(Exception):
     pass
@@ -18,13 +17,30 @@ class BlenderService:
 
     def analyze(self, blend_file_path: str) -> Dict[str, Optional[str]]:
         blend_details = dict()
+
+        python_script_path = "backend/services/extract_blend_file_properties.py"
+        # Get properties of the blend file
+        # extract_blend_file_properties.py reads the blend file properties and writes them to a text file
+        os.system("blender " + blend_file_path + " --background --python " + python_script_path)
         
-        blend_details["fps"] = 24
+        # created by blender command above
+        with open("blend_file_data.txt", "r") as file:
+            properties = file.readlines()
 
-        blend_chunk = (read_blend_rend_chunk(blend_file_path))
+        # Forming a dictionary where key is property name and value is property value
+        blend_file_properties = dict()
+        for property in properties:
+             property_name, property_value = property.strip().split(":")
+             blend_file_properties[property_name] = property_value
 
-        print(blend_chunk)
 
-        # blend_details["frame_start"] = blend_chunk[0]
-        # blend_details["frame_end"] = blend_chunk[1]
+        file.close()
+
+        # Deleting the file as its only for temporary purposes
+        os.remove("blend_file_data.txt")
+
+        blend_details["fps"] = int(blend_file_properties["fps"])
+        blend_details["renderer"] = blend_file_properties["renderer"]
+        blend_details["frame_start"] = int(blend_file_properties["frame_start"])
+        blend_details["frame_end"] = int(blend_file_properties["frame_end"])
         return blend_details
