@@ -58,6 +58,16 @@ export default function JobPage() {
   const handleUpload = async ({ file }) => {
     setUploading(true);
 
+    try {
+      const response = await fetch(`${API_BASE}/jobs/analyze`, {
+        method: "POST",
+        body: file,
+      });
+      const data = await response.json();
+    } catch (error) {
+      console.error("Error uploading file:", error);
+    }
+
     // Mock backend request (replace with your actual API)
     setTimeout(() => {
       // Fake response data

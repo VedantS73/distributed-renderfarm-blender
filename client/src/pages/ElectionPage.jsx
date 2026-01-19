@@ -84,7 +84,7 @@ const [ring, setRing] = useState([]);
           <Button
             icon={<ReloadOutlined />}
             onClick={initialeLeaderElection}
-            loading={loading}
+            // loading={loading}
             disabled={electionActive}
           >
             {electionActive ? "Election Completed" : "Start Election"}

@@ -7,7 +7,7 @@ import psutil
 import os
 import json
 from datetime import datetime
-from .blend_service import BlendService
+from .blender_service import BlendService
 class NetworkDiscoveryService:
     def __init__(self):
         self.broadcast_port = 8888

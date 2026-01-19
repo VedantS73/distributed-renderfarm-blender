@@ -3,6 +3,7 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 
 from backend.routes.api_routes import api
+from backend.routes.jobs import jobs_api
 
 def create_app():
     app = Flask(__name__, static_folder="../client/dist", static_url_path="")
@@ -10,6 +11,7 @@ def create_app():
 
     # Register API routes
     app.register_blueprint(api)
+    app.register_blueprint(jobs_api)
 
     @app.errorhandler(404)
     def not_found(e):
