@@ -64,24 +64,12 @@ export default function JobPage() {
         body: file,
       });
       const data = await response.json();
+      setJobDetails(data);
+      messageApi.success(`${file.name} uploaded successfully!`);
+      setUploading(false);
     } catch (error) {
       console.error("Error uploading file:", error);
     }
-
-    // Mock backend request (replace with your actual API)
-    setTimeout(() => {
-      // Fake response data
-      const mockResponse = {
-        renderer: "Cycles",
-        frame_start: 1,
-        frame_end: 250,
-        fps: 24,
-      };
-
-      setJobDetails(mockResponse);
-      messageApi.success(`${file.name} uploaded successfully!`);
-      setUploading(false);
-    }, 1000);
 
     return false; // prevent default upload to server
   };

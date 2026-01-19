@@ -7,7 +7,7 @@ import psutil
 import os
 import json
 from datetime import datetime
-from .blender_service import BlendService
+from .blender_service import BlenderService
 class NetworkDiscoveryService:
     def __init__(self):
         self.broadcast_port = 8888
@@ -365,7 +365,7 @@ class NetworkDiscoveryService:
             self.upload_status["uploading"] = False
             self.upload_status["progress"] = 100
 
-            service = BlendService(blender_binary="blender")
+            service = BlenderService(blender_binary="blender")
             blend_info = service.analyze_blend_file(filepath)
             print(f"[{self.local_ip}] Analyzed Blender file info: {blend_info}")
 
