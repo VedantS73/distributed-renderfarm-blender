@@ -223,6 +223,10 @@ export default function JobPage() {
               <Form.Item label="FPS" name="fps">
                 <InputNumber min={1} max={240} />
               </Form.Item>
+
+              <Form.Item name="initiator_is_participant" valuePropName="checked" label="Job Preference">
+                <Checkbox>Participate as Worker</Checkbox>
+              </Form.Item>
             </Form>
           )}
 

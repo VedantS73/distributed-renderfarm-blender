@@ -50,6 +50,7 @@ def upload_file():
 
     # metadata from frontend (renderer, frames, fps, etc.)
     metadata = request.form.to_dict()
+    metadata["initiator_client_ip"] = discovery.local_ip
 
     election_status = discovery.get_election_status()
     leader_ip = election_status.get("current_leader")
@@ -132,7 +133,10 @@ def create_job():
         "job_id": job_id,
         "filename": filename,
         "created_at": datetime.datetime.utcnow().isoformat(),
-        "metadata": metadata
+        "metadata": metadata,
+        "status": "created",
+        "no_of_workers": len(discovery.ring_topology),
+        "leader_ip": discovery.local_ip,
     }
 
     metadata_path = os.path.join(job_dir, "metadata.json")
@@ -153,3 +157,63 @@ def create_job():
         "job_id": job_id,
         "job_dir": job_dir
     }), 201
+
+@api.post("/jobs/broadcast-to-workers")
+def broadcast_job_to_workers():
+    data = request.get_json(silent=True)
+    job_id = data.get("uuid") if data else None
+    
+    if not job_id:
+        return jsonify({"error": "uuid is required"}), 400
+
+    job_path = JOBS_DIR / job_id
+    if not job_path.is_dir():
+        return jsonify({"error": "Job folder not found"}), 404
+
+    blend_file = None
+    json_file = None
+    
+    for f in job_path.iterdir():
+        if f.suffix == ".blend":
+            blend_file = f
+        elif f.suffix == ".json":
+            json_file = f
+
+    if not blend_file or not json_file:
+        return jsonify(
+            {"error": "Job folder must contain one .blend and one .json file"}
+        ), 400
+
+    results = []
+    
+    for ip in discovery.ring_topology:
+        worker_url = f"http://{ip}:5050/api/worker/submit-job"
+        try:
+            with open(blend_file, "rb") as bf, open(json_file, "rb") as jf:
+                response = requests.post(
+                    worker_url,
+                    data={
+                        "uuid": job_id
+                    },
+                    files={
+                        "blend_file": bf,
+                        "metadata": jf,
+                    },
+                    timeout=10
+                )
+
+            results.append({
+                "worker": ip,
+                "status": response.status_code,
+            })
+
+        except Exception as e:
+            results.append({
+                "worker": ip,
+                "error": str(e),
+            })
+
+    return jsonify({
+        "job_id": job_id,
+        "broadcast_results": results,
+    }), 200
