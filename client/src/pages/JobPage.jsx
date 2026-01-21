@@ -9,6 +9,7 @@ import {
   Upload,
   Form,
   InputNumber,
+  Checkbox,
   Select,
   Alert,
 } from "antd";
