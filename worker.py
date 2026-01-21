@@ -46,7 +46,7 @@ class FolderHandler(FileSystemEventHandler):
             frame_end = int(data["metadata"]["frame_end"])
             workers = int(data["no_of_workers"])
 
-            if data["initiator_is_participant"]== False:
+            if data["metadata"]["initiator_is_participant"] == False:
                 workers-=1
 
             if frame_end < frame_start or workers <= 0:

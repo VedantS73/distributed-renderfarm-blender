@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 import tempfile, uuid, os, requests, datetime
 from werkzeug.utils import secure_filename
 from backend.shared.state import blender, discovery
+from pathlib import Path
 
 JOBS_DIR = "jobs"
 os.makedirs(JOBS_DIR, exist_ok=True)
@@ -164,9 +165,12 @@ def broadcast_job_to_workers():
     job_id = data.get("uuid") if data else None
     
     if not job_id:
-        return jsonify({"error": "uuid is required"}), 400
+        return jsonify({"error": "uuid is required"}), 
+    
+    jobdir = Path(JOBS_DIR)
+    jobdir.mkdir(exist_ok=True)
 
-    job_path = JOBS_DIR / job_id
+    job_path = jobdir / job_id
     if not job_path.is_dir():
         return jsonify({"error": "Job folder not found"}), 404
 
@@ -186,30 +190,25 @@ def broadcast_job_to_workers():
 
     results = []
     
-    for ip in discovery.ring_topology:
-        worker_url = f"http://{ip}:5050/api/worker/submit-job"
+    for worker in discovery.ring_topology:
+        worker_ip = worker['ip']
+        print(f"Sending job to worker at {worker_ip}")
+        worker_url = f"http://{worker_ip}:5050/api/worker/submit-job"
         try:
             with open(blend_file, "rb") as bf, open(json_file, "rb") as jf:
                 response = requests.post(
                     worker_url,
-                    data={
-                        "uuid": job_id
-                    },
-                    files={
-                        "blend_file": bf,
-                        "metadata": jf,
-                    },
-                    timeout=10
+                    data={"uuid": job_id},
+                    files={"blend_file": bf, "metadata": jf},
+                    timeout=30
                 )
-
             results.append({
-                "worker": ip,
+                "worker": worker,
                 "status": response.status_code,
             })
-
         except Exception as e:
             results.append({
-                "worker": ip,
+                "worker": worker,
                 "error": str(e),
             })
 
