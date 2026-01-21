@@ -3,6 +3,7 @@ import tempfile, uuid, os, requests, datetime
 from werkzeug.utils import secure_filename
 from backend.shared.state import blender, discovery
 from pathlib import Path
+import json
 
 JOBS_DIR = "jobs"
 os.makedirs(JOBS_DIR, exist_ok=True)
@@ -142,7 +143,6 @@ def create_job():
 
     metadata_path = os.path.join(job_dir, "metadata.json")
     with open(metadata_path, "w") as f:
-        import json
         json.dump(metadata_payload, f, indent=2)
 
     # 7. Print metadata (as requested)
@@ -165,7 +165,7 @@ def broadcast_job_to_workers():
     job_id = data.get("uuid") if data else None
     
     if not job_id:
-        return jsonify({"error": "uuid is required"}), 
+        return jsonify({"error": "uuid is required"}), 400
     
     jobdir = Path(JOBS_DIR)
     jobdir.mkdir(exist_ok=True)
@@ -187,6 +187,28 @@ def broadcast_job_to_workers():
         return jsonify(
             {"error": "Job folder must contain one .blend and one .json file"}
         ), 400
+
+    # --- Update jobs keys with IPs ---
+    with open(json_file, "r+") as jf:
+        metadata = json.load(jf)
+        old_jobs = metadata.get("jobs", {})
+
+        # Map old numeric keys to IPs from discovery.ring_topology
+        new_jobs = {}
+        worker_ips = [w['ip'] for w in discovery.ring_topology]
+
+        for idx, ip in enumerate(worker_ips):
+            old_key = str(idx + 1)  # old keys are "1", "2", ...
+            if old_key in old_jobs:
+                new_jobs[ip] = old_jobs[old_key]
+
+        metadata["jobs"] = new_jobs
+
+        # Write back updated metadata
+        jf.seek(0)
+        json.dump(metadata, jf, indent=4)
+        jf.truncate()
+    # --- Done updating jobs ---
 
     results = []
     
