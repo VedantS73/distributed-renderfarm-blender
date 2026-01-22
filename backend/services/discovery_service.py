@@ -213,7 +213,8 @@ class NetworkDiscoveryService:
                         self.add_device(name, ip, score, role=role)
                 
                 elif msg.startswith("ELECTION_INIT:"):
-                    print("Election initiation message received.")
+                    print("Election initiation message received .")
+                    print(msg)
                     parts = msg.split(":")
                     if len(parts) >= 3:
                         initiator_ip = parts[1]
@@ -222,11 +223,12 @@ class NetworkDiscoveryService:
                         self.election_active = True
                         self.current_leader = None
                         
-                        if initiator_ip != self.local_ip:
-                            self.run_election_simulation()
+                        # if initiator_ip != self.local_ip:
+                        #     self.run_election_simulation()
                 
                 elif msg.startswith("LCR_TOKEN:"):
                     print("LCR token message received.")
+                    print(msg)
                     parts = msg.split(":")
                     if len(parts) >= 4:
                         mid_score = int(parts[1])
@@ -236,6 +238,7 @@ class NetworkDiscoveryService:
                 
                 elif msg.startswith("ELECTION:"):
                     print("Election result message received.")
+                    print(msg)
                     parts = msg.split(":")
                     if len(parts) >= 3:
                         leader_ip, leader_name = parts[1], parts[2]
@@ -548,8 +551,12 @@ class NetworkDiscoveryService:
 
         try:
             msg = f"ELECTION_INIT:{self.local_ip}:{self.pc_name}"
+            #print(self.get_broadcast_addresses())
             # 2. BROADCAST FIRST
             for addr in self.get_broadcast_addresses():
+                # address starting with 255 is global broadcast, 127 is loopback broadcast. Ignore both
+                if addr.startswith('255') or addr.startswith('127'):
+                    continue
                 try:
                     self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
                 except:
