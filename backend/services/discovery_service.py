@@ -632,8 +632,9 @@ class NetworkDiscoveryService:
             if self.ring_successor != self.local_ip:
                 self.send_lcr_token(mid_score, mid_ip, is_leader=True)
             
-            device_name = self.discovered_devices.get(mid_ip, {}).get('name', 'Unknown')
-            self.broadcast_election_result(mid_ip, device_name)
+            self.election_active = False
+            # device_name = self.discovered_devices.get(mid_ip, {}).get('name', 'Unknown')
+            # self.broadcast_election_result(mid_ip, device_name)
             
         elif mid_uid < my_uid and not self.participant:
             self.participant = True
