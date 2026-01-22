@@ -213,6 +213,7 @@ class NetworkDiscoveryService:
                         self.add_device(name, ip, score, role=role)
                 
                 elif msg.startswith("ELECTION_INIT:"):
+                    print("Election initiation message received.")
                     parts = msg.split(":")
                     if len(parts) >= 3:
                         initiator_ip = parts[1]
@@ -225,6 +226,7 @@ class NetworkDiscoveryService:
                             self.run_election_simulation()
                 
                 elif msg.startswith("LCR_TOKEN:"):
+                    print("LCR token message received.")
                     parts = msg.split(":")
                     if len(parts) >= 4:
                         mid_score = int(parts[1])
@@ -233,22 +235,13 @@ class NetworkDiscoveryService:
                         self.handle_lcr_token(mid_score, mid_ip, is_leader)
                 
                 elif msg.startswith("ELECTION:"):
+                    print("Election result message received.")
                     parts = msg.split(":")
                     if len(parts) >= 3:
                         leader_ip, leader_name = parts[1], parts[2]
                         self.current_leader = leader_ip
                         self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
                         self.election_active = True
-                
-                elif msg.startswith("RENDER_JOB:"):
-                    # Format: RENDER_JOB:JOB_ID:WORKER_IP:STATUS:PROGRESS
-                    parts = msg.split(":")
-                    if len(parts) >= 5:
-                        job_id = parts[1]
-                        worker_ip = parts[2]
-                        status = parts[3]
-                        progress = int(parts[4])
-                        self.update_render_job(job_id, worker_ip, status, progress)
             except:
                 continue
 
