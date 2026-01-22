@@ -13,7 +13,11 @@ class BlenderService:
         """
         :param blender_binary: Path to blender executable
         """
-        self.blender_binary = blender_binary
+        self.blender_binary = (
+            blender_binary 
+            or os.getenv("BLENDER_PATH") 
+            or "blender"
+        )
 
     def analyze(self, blend_file_path: str) -> Dict[str, Optional[str]]:
         blend_details = dict()
@@ -21,7 +25,7 @@ class BlenderService:
         python_script_path = "backend/services/extract_blend_file_properties.py"
         # Get properties of the blend file
         # extract_blend_file_properties.py reads the blend file properties and writes them to a text file
-        os.system("blender " + blend_file_path + " --background --python " + python_script_path)
+        os.system(self.blender_binary + " " + blend_file_path + " --background --python " + python_script_path)
         
         # created by blender command above
         with open("blend_file_data.txt", "r") as file:
