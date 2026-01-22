@@ -606,6 +606,10 @@ class NetworkDiscoveryService:
         return self.election_results
 
     def send_lcr_token(self, mid_score, mid_ip, is_leader):
+        if self.ring_successor == "Undefined":
+            ring_order_ips = self.calculate_ring_topology()
+            successor_index = (ring_order_ips.index(self.local_ip) + 1) % len(ring_order_ips)
+            self.ring_successor = ring_order_ips[successor_index]
         try:
             msg = f"LCR_TOKEN:{mid_score}:{mid_ip}:{is_leader}"
             # Send 3 times to ensure delivery (UDP redundancy)
