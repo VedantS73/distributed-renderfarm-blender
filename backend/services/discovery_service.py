@@ -403,7 +403,7 @@ class NetworkDiscoveryService:
             self.upload_status["uploading"] = False
             self.upload_status["progress"] = 100
 
-            service = BlenderService(blender_binary="blender")
+            service = BlenderService()
             blend_info = service.analyze_blend_file(filepath)
             print(f"[{self.local_ip}] Analyzed Blender file info: {blend_info}")
 

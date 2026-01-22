@@ -1,32 +1,40 @@
 import subprocess
-import json
-import tempfile
 import os
 from typing import Dict, Optional
 
 class BlendServiceError(Exception):
     pass
 
-
+env = os.environ.copy()
 class BlenderService:
-    def __init__(self, blender_binary: str = "blender"):
-        """
-        :param blender_binary: Path to blender executable
-        """
+    def __init__(self, blender_binary: Optional[str] = None):
         self.blender_binary = (
-            blender_binary 
-            or os.getenv("BLENDER_PATH") 
+            blender_binary
+            or os.getenv("BLENDER_PATH")
             or "blender"
         )
 
     def analyze(self, blend_file_path: str) -> Dict[str, Optional[str]]:
         blend_details = dict()
+        
+        print("according to param ->:", self.blender_binary)
 
         python_script_path = "backend/services/extract_blend_file_properties.py"
-        # Get properties of the blend file
-        # extract_blend_file_properties.py reads the blend file properties and writes them to a text file
-        os.system(self.blender_binary + " " + blend_file_path + " --background --python " + python_script_path)
+        print("according to env ->", os.getenv("BLENDER_PATH") )
         
+        subprocess.run(
+        [
+            self.blender_binary,
+            blend_file_path,
+            "--background",
+            "--python",
+            python_script_path,
+        ],
+    env=os.environ.copy(),
+    check=True
+)
+
+
         # created by blender command above
         with open("blend_file_data.txt", "r") as file:
             properties = file.readlines()
