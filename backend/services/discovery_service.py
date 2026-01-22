@@ -613,7 +613,7 @@ class NetworkDiscoveryService:
         try:
             msg = f"LCR_TOKEN:{mid_score}:{mid_ip}:{is_leader}"
             # Send 3 times to ensure delivery (UDP redundancy)
-            for _ in range(3):
+            for _ in range(1):
                 print("Sending LCR token to " + self.ring_successor)
                 self.socket.sendto(msg.encode(), (self.ring_successor, self.broadcast_port))
                 time.sleep(0.05) # Tiny gap between bursts
