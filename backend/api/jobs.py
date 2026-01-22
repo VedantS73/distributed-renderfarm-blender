@@ -238,3 +238,68 @@ def broadcast_job_to_workers():
         "job_id": job_id,
         "broadcast_results": results,
     }), 200
+
+@api.post("/jobs/submit-frames")
+def submit_frames():
+    # 1. Validate input
+    job_id = request.form.get("uuid")
+    image = request.files.get("image")
+
+    if not job_id:
+        return jsonify({"error": "uuid is required"}), 400
+
+    if not image:
+        return jsonify({"error": "image file is required"}), 400
+
+    # 2. Validate job folder
+    job_path = Path(JOBS_DIR) / job_id
+    if not job_path.is_dir():
+        return jsonify({"error": "Job folder not found"}), 404
+
+    # 3. Validate metadata.json
+    metadata_path = job_path / "metadata.json"
+    if not metadata_path.is_file():
+        return jsonify({"error": "metadata.json not found"}), 400
+
+    with metadata_path.open("r") as f:
+        metadata = json.load(f)
+
+    # 4. Check job status
+    if metadata.get("status") != "in_progress":
+        return jsonify({"error": "Job is not in progress"}), 409
+
+    # 5. Create renders directory
+    renders_dir = job_path / "renders"
+    renders_dir.mkdir(exist_ok=True)
+
+    # 6. Save image
+    filename = secure_filename(image.filename)
+
+    # Optional: auto-generate filename if worker sends same name
+    if not filename:
+        filename = f"frame_{datetime.utcnow().timestamp()}.png"
+
+    image_path = renders_dir / filename
+    image.save(image_path)
+
+    # 7. Update remaining_frames
+    remaining = metadata.get("remaining_frames")
+
+    if not isinstance(remaining, int) or remaining <= 0:
+        return jsonify({"error": "Invalid remaining_frames value"}), 400
+
+    metadata["remaining_frames"] = remaining - 1
+
+    # Optional: auto-finish job
+    if metadata["remaining_frames"] == 0:
+        metadata["status"] = "completed"
+
+    with metadata_path.open("w") as f:
+        json.dump(metadata, f, indent=2)
+
+    # 8. Success response
+    return jsonify({
+        "job_id": job_id,
+        "saved_as": filename,
+        "remaining_frames": metadata["remaining_frames"]
+    }), 200

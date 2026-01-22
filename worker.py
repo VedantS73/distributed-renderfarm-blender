@@ -67,6 +67,8 @@ class FolderHandler(FileSystemEventHandler):
 
             data["status"] = "in_progress"
             data["jobs"] = jobs
+            data["total_no_frames"] = total_frames
+            data["remaining_frames"] = total_frames
 
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
@@ -106,43 +108,50 @@ def render_in_progress_jobs():
                     print(f"Blend file not found for job {job_folder}")
                     continue
 
-                my_id = discovery.local_ip
-                frames = []
-                for worker_id, frame_list in data["jobs"].items():
-                    if worker_id == str(my_id):
-                        frames = frame_list
-                        break
-
+                # Get frames assigned to this node
+                my_id = str(discovery.local_ip)
+                frames = data.get("jobs", {}).get(my_id, [])
                 if not frames:
                     print(f"No frames assigned to this node for job {job_folder}")
                     continue
 
-                # Render frames
+                # Prepare output folder
                 job_output_path = os.path.join(os.getcwd(), "render_output", job_folder)
-                if os.path.exists(job_output_path):
-                    shutil.rmtree(job_output_path)
-                os.makedirs(job_output_path)
+                os.makedirs(job_output_path, exist_ok=True)
 
-                frame_list_str = ",".join(map(str, frames))
-                output_path = os.path.join(job_output_path, "#.png")
-                print(f"[+] Rendering frames: {frame_list_str}")
-
-                blender_cmd = f"blender --background {os.path.join(folder_path, blend_file)} -o {output_path} --render-frame {frame_list_str}"
-                print(blender_cmd)
-                subprocess.run(["blender", "--background", os.path.join(folder_path, blend_file), "-o", output_path, "--render-frame", frame_list_str])
-
-                # Send to leader
                 leader_ip = discovery.get_election_status()["current_leader"]
                 leader_url = f"http://{leader_ip}:5050/api/jobs/submit-frames"
-                files = {f: open(os.path.join(job_output_path, f), "rb") for f in os.listdir(job_output_path)}
-                requests.post(leader_url, files=files)
-                print(f"[+] Sent rendered frames of job {job_folder} to leader")
 
-                # Mark completed
-                data["status"] = "completed"
-                with open(json_path, "w") as f:
-                    json.dump(data, f, indent=4)
-                
+                # --- FRAME-BY-FRAME RENDER & UPLOAD ---
+                for frame_no in frames:
+                    output_template = os.path.join(job_output_path, "#")
+                    blender_cmd = [
+                        "blender",
+                        "--background",
+                        os.path.join(folder_path, blend_file),
+                        "-o", output_template,
+                        "--render-frame", str(frame_no)
+                    ]
+                    print(f"[+] Rendering frame {frame_no} for job {job_folder}")
+                    subprocess.run(blender_cmd, check=True)
+
+                    # File Blender created
+                    output_file = os.path.join(job_output_path, f"{frame_no}.png")
+
+                    # Send frame immediately
+                    with open(output_file, "rb") as f:
+                        response = requests.post(
+                            leader_url,
+                            data={"uuid": job_folder, "frame_no": frame_no},
+                            files={"image": f},
+                            timeout=10
+                        )
+                        if response.status_code == 200:
+                            print(f"[+] Sent frame {frame_no} successfully")
+                        else:
+                            print(f"[!] Failed to send frame {frame_no}: {response.text}")
+
+                # Finished all frames for this node
                 processed_blender_jobs.append(job_folder)
 
         except Exception as e:
