@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import requests
+import subprocess
 from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -125,7 +126,10 @@ def render_in_progress_jobs():
                 frame_list_str = ",".join(map(str, frames))
                 output_path = os.path.join(job_output_path, "#.png")
                 print(f"[+] Rendering frames: {frame_list_str}")
-                os.system(f"blender --background {os.path.join(folder_path, blend_file)} -o {output_path} --render-frame {frame_list_str}")
+
+                blender_cmd = f"blender --background {os.path.join(folder_path, blend_file)} -o {output_path} --render-frame {frame_list_str}"
+                print(blender_cmd)
+                subprocess.run(["blender", "--background", os.path.join(folder_path, blend_file), "-o", output_path, "--render-frame", frame_list_str])
 
                 # Send to leader
                 leader_ip = discovery.get_election_status()["current_leader"]
