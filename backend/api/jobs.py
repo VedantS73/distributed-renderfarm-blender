@@ -142,6 +142,7 @@ def create_job():
         "status": "created",
         "no_of_nodes": len(discovery.ring_topology),
         "leader_ip": discovery.local_ip,
+        "scores": {worker['ip']: worker.get('score', 0) for worker in discovery.ring_topology}
     }
 
     metadata_path = os.path.join(job_dir, "metadata.json")
