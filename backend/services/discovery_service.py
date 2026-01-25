@@ -629,7 +629,7 @@ class NetworkDiscoveryService:
             self.my_role = "Leader" if mid_ip == self.local_ip else "Worker"
             self.participant = False
             print(f"[{self.local_ip}] I have recognized the leader: {mid_ip}")
-            if self.ring_successor != self.local_ip:
+            if self.ring_successor != self.local_ip and self.my_role != "Leader":
                 self.send_lcr_token(mid_score, mid_ip, is_leader=True)
             elif self.my_role == "Leader":
                 print(f"[{self.local_ip}] Election complete. Ending election process.")
