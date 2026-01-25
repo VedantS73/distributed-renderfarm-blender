@@ -9,6 +9,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from backend.shared.state import discovery
 from dotenv import load_dotenv
+from backend.services.ffmpeg_service import stitch_pngs_to_video
 
 load_dotenv('.env')
 BLENDER_PATH = os.getenv("BLENDER_PATH") or "blender"
@@ -183,13 +184,70 @@ def render_in_progress_jobs():
         time.sleep(1)
 
 # ==========================================
+# FFMPEG METADATA HANDLER
+# ==========================================
+class MetadataJsonHandler(FileSystemEventHandler):
+    def __init__(self):
+        # Track last known status per job
+        self.last_status = {}
+
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+
+        if not event.src_path.endswith(JSON_FILENAME):
+            return
+
+        json_path = event.src_path
+        job_folder = os.path.basename(os.path.dirname(json_path))
+
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            new_status = data.get("status")
+            old_status = self.last_status.get(job_folder)
+
+            if new_status != old_status:
+                print(f"[🔔] Job {job_folder} status changed: {old_status} → {new_status}")
+                self.last_status[job_folder] = new_status
+
+                # ---- react to specific status ----
+                if new_status == "completed":
+                    self.on_job_completed(job_folder, data)
+
+        except Exception as e:
+            print(f"[!] Error reading {json_path}: {e}")
+
+    def on_job_completed(self, job_folder, data):
+        print(f"[+] Detected job {job_folder} completion, starting video stitching")
+        try:
+            frames_dir = os.path.join("jobs", job_folder, "renders")
+            output_video = os.path.join(frames_dir, "output_video.mp4")
+            fps = data["metadata"].get("fps", 24)
+
+            stitch_pngs_to_video(frames_dir, output_video, fps)
+
+        except Exception as e:
+            print(f"[!] Error stitching video for job {job_folder}: {e}")
+            return
+        print(f"[✅] Job {job_folder} fully completed")
+        # do cleanup, notify server, etc.
+
+
+# ==========================================
 # MAIN
 # ==========================================
 
 def main():
     observer = Observer()
-    handler = FolderHandler()
-    observer.schedule(handler, WATCH_DIR, recursive=False)
+    
+    folder_handler = FolderHandler()
+    metadata_handler = MetadataJsonHandler()
+
+    observer.schedule(folder_handler, WATCH_DIR, recursive=False)
+    observer.schedule(metadata_handler, WATCH_DIR, recursive=True)
+    
     observer.start()
     print(f"[+] Watching directory: {WATCH_DIR}")
 
