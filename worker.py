@@ -50,7 +50,7 @@ class FolderHandler(FileSystemEventHandler):
             # Validate and split frames
             frame_start = int(data["metadata"]["frame_start"])
             frame_end = int(data["metadata"]["frame_end"])
-            workers = int(data["no_of_workers"])
+            workers = int(data["no_of_nodes"])
             if not data["metadata"].get("initiator_is_participant", True):
                 workers -= 1
 

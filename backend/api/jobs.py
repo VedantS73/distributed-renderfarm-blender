@@ -60,7 +60,6 @@ def upload_file():
     if not leader_ip:
         return jsonify({"error": "No leader found in the network"}), 500
 
-    leader_ip = election_status.get("current_leader")
     leader_url = f"http://{leader_ip}:5050/api/jobs/create"
 
     print(f"Forwarding job to leader at {leader_url}")
@@ -119,6 +118,10 @@ def create_job():
     # 2. Read metadata
     metadata = request.form.to_dict()
 
+    if metadata.get('initiator_is_participant') == 'undefined':
+        metadata['initiator_is_participant'] = False
+    else:
+        metadata["initiator_is_participant"] = True
     # 3. Generate JOB ID
     job_id = str(uuid.uuid4())
 
@@ -137,7 +140,7 @@ def create_job():
         "created_at": datetime.datetime.utcnow().isoformat(),
         "metadata": metadata,
         "status": "created",
-        "no_of_workers": len(discovery.ring_topology),
+        "no_of_nodes": len(discovery.ring_topology),
         "leader_ip": discovery.local_ip,
     }
 
