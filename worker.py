@@ -162,17 +162,16 @@ def render_in_progress_jobs():
                         else:
                             print(f"[!] Failed to send frame {frame_no}: {response.text}")
 
-                if(num_frames_sent_leader == len(frames)):
-                    print('All frames processed. Deleting temporary folders')
-                    if os.path.exists('render_output'):
-                        shutil.rmtree('render_output')
+                print('All frames processed. Deleting temporary folders')
+                if os.path.exists('render_output'):
+                    shutil.rmtree('render_output')
 
-                    data['status'] = 'completed'
-                    json_output = json.dump(data)
+                data['status'] = 'completed'
+                json_output = json.dumps(data, indent = 4)
 
-                    # Marking status as completed in local json file
-                    with open(json_path, 'w') as file:
-                        file.write(json_output)
+                # Marking status as completed in local json file
+                with open(json_path, 'w') as file:
+                    file.write(json_output)
 
                     
                 # Finished all frames for this node
