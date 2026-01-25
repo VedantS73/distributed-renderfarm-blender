@@ -7,7 +7,7 @@ import psutil
 import os
 import json
 from datetime import datetime
-from .blend_service import BlendService
+from .blender_service import BlenderService
 class NetworkDiscoveryService:
     def __init__(self):
         self.broadcast_port = 8888
@@ -38,7 +38,7 @@ class NetworkDiscoveryService:
         self.election_active = False
         self.election_results = None
         self.participant = False
-        self.my_role = "Worker"
+        self.my_role = "Undefined"
         
         # Upload tracking
         self.current_blend_file = {
@@ -116,7 +116,7 @@ class NetworkDiscoveryService:
             
             # Add self to discovery list
             self.current_score = self.get_resource_score()
-            self.add_device(self.pc_name, self.local_ip, self.current_score)
+            self.add_device(self.pc_name, self.local_ip, self.current_score, role="Undefined")
             
             # Start threads
             self.broadcast_thread = threading.Thread(target=self.broadcast_loop, daemon=True)
@@ -132,24 +132,62 @@ class NetworkDiscoveryService:
             return False, str(e)
 
     def stop(self):
+        """Stops all services and clears all internal state data."""
         self.running = False
+        
+        # 1. Close Network Sockets
+        if self.socket:
+            try:
+                self.socket.close()
+            except:
+                pass
+            self.socket = None
+            
+        if self.file_server_socket:
+            try:
+                self.file_server_socket.close()
+            except:
+                pass
+            self.file_server_socket = None
+
+        # 2. Reset Election & Role State
         self.election_active = False
         self.current_leader = None
-        self.my_role = "Worker"
+        self.my_role = "Undefined"
         self.ring_successor = "Undefined"
+        self.participant = False
         self.election_results = None
         
-        if self.socket:
-            self.socket.close()
-        if self.file_server_socket:
-            self.file_server_socket.close()
+        # 3. Clear Discovered Data
+        self.discovered_devices = {}
+        self.ring_topology = []
+        
+        # 4. Clear Render and File State
+        self.render_jobs = {}
+        self.my_render_tasks = []
+        
+        # 5. Reset Upload Buffers
+        self.current_blend_file = {
+            "file_name": None, "filepath": None, "scene_name": None,
+            "start_frame": None, "end_frame": None, "samples": None,
+            "engine": None, "res_x": None, "res_y": None, "output_format": None
+        }
+
+        self.upload_status = {
+            "uploading": False,
+            "progress": 0,
+            "filename": None,
+            "error": None
+        }
+        
+        print(f"[{self.local_ip}] Discovery Service stopped and state cleared.")
 
     def broadcast_loop(self):
         """Broadcasts UDP Beacons every 3 seconds"""
         while self.running:
             try:
                 self.current_score = self.get_resource_score()
-                msg = f"DISCOVER:{self.pc_name}:{self.local_ip}:{self.current_score}"
+                msg = f"DISCOVER:{self.pc_name}:{self.local_ip}:{self.current_score}:{self.my_role}"
                 
                 for addr in self.get_broadcast_addresses():
                     self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
@@ -167,17 +205,30 @@ class NetworkDiscoveryService:
                 if msg.startswith("DISCOVER:"):
                     parts = msg.split(":")
                     if len(parts) >= 4:
-                        name, ip, score = parts[1], parts[2], int(parts[3])
-                        self.add_device(name, ip, score)
+                        name = parts[1]
+                        ip = parts[2]
+                        score = int(parts[3])
+                        role = parts[4] if len(parts) >= 5 else "Undefined"
+                        
+                        self.add_device(name, ip, score, role=role)
                 
                 elif msg.startswith("ELECTION_INIT:"):
+                    print("Election initiation message received .")
+                    print(msg)
                     parts = msg.split(":")
                     if len(parts) >= 3:
                         initiator_ip = parts[1]
-                        if initiator_ip != self.local_ip:
-                            self.run_election_simulation()
+                        
+                        self.participant = False
+                        self.election_active = True
+                        self.current_leader = None
+                        
+                        # if initiator_ip != self.local_ip:
+                        #     self.run_election_simulation()
                 
                 elif msg.startswith("LCR_TOKEN:"):
+                    print("LCR token message received.")
+                    print(msg)
                     parts = msg.split(":")
                     if len(parts) >= 4:
                         mid_score = int(parts[1])
@@ -185,23 +236,15 @@ class NetworkDiscoveryService:
                         is_leader = parts[3] == "True"
                         self.handle_lcr_token(mid_score, mid_ip, is_leader)
                 
-                elif msg.startswith("ELECTION:"):
-                    parts = msg.split(":")
-                    if len(parts) >= 3:
-                        leader_ip, leader_name = parts[1], parts[2]
-                        self.current_leader = leader_ip
-                        self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
-                        self.election_active = True
-                
-                elif msg.startswith("RENDER_JOB:"):
-                    # Format: RENDER_JOB:JOB_ID:WORKER_IP:STATUS:PROGRESS
-                    parts = msg.split(":")
-                    if len(parts) >= 5:
-                        job_id = parts[1]
-                        worker_ip = parts[2]
-                        status = parts[3]
-                        progress = int(parts[4])
-                        self.update_render_job(job_id, worker_ip, status, progress)
+                # elif msg.startswith("ELECTION:"):
+                #     print("Election result message received.")
+                #     print(msg)
+                #     parts = msg.split(":")
+                #     if len(parts) >= 3:
+                #         leader_ip, leader_name = parts[1], parts[2]
+                #         self.current_leader = leader_ip
+                #         self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
+                #         self.election_active = True
             except:
                 continue
 
@@ -356,7 +399,7 @@ class NetworkDiscoveryService:
             self.upload_status["uploading"] = False
             self.upload_status["progress"] = 100
 
-            service = BlendService(blender_binary="blender")
+            service = BlenderService()
             blend_info = service.analyze_blend_file(filepath)
             print(f"[{self.local_ip}] Analyzed Blender file info: {blend_info}")
 
@@ -461,12 +504,13 @@ class NetworkDiscoveryService:
             "my_tasks": self.my_render_tasks
         }
 
-    def add_device(self, name, ip, score):
+    def add_device(self, name, ip, score, role="Undefined"):
         self.discovered_devices[ip] = {
             "name": name,
             "ip": ip,
             "resource_score": score,
             "last_seen": int(time.time()),
+            "my_role": role
         }
 
     def get_devices(self):
@@ -497,18 +541,33 @@ class NetworkDiscoveryService:
         return all_nodes
 
     def initiate_election(self):
+        # 1. RESET STATE FORCEFULLY
         self.participant = False
         self.current_leader = None
         self.election_active = True
+        self.my_role = "Worker" # Default to worker until won
         
+        print(f"[{self.local_ip}] Initiating Election...")
+
         try:
             msg = f"ELECTION_INIT:{self.local_ip}:{self.pc_name}"
+            #print(self.get_broadcast_addresses())
+            # 2. BROADCAST FIRST
             for addr in self.get_broadcast_addresses():
+                # address starting with 255 is global broadcast, 127 is loopback broadcast. Ignore both
+                if addr.startswith('255') or addr.startswith('127'):
+                    continue
                 try:
                     self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
-                    self.run_election_simulation()
                 except:
                     pass
+            
+            # 3. RUN SIMULATION ONCE (Outside Loop)
+            # Add a tiny delay to allow other nodes to receive the INIT message 
+            # and reset their state before we send the first token.
+            time.sleep(0.5) 
+            self.run_election_simulation()
+                
         except Exception as e:
             print(f"Error broadcasting election initiation: {e}")
 
@@ -526,7 +585,15 @@ class NetworkDiscoveryService:
         successor_index = (ring_order_ips.index(self.local_ip) + 1) % len(ring_order_ips)
         self.ring_successor = ring_order_ips[successor_index]
         print(f"[{self.local_ip}] Successor IP: {self.ring_successor}")
-        
+
+        if self.ring_successor == self.local_ip:
+            print(f"[{self.local_ip}] Only node in ring. declaring self leader.")
+            self.current_leader = self.local_ip
+            self.my_role = "Leader"
+            self.election_active = False
+            # self.broadcast_election_result(self.local_ip, self.pc_name)
+            return
+              
         if not self.participant:
             self.participant = True
             self.send_lcr_token(self.current_score, self.local_ip, is_leader=False)
@@ -539,9 +606,17 @@ class NetworkDiscoveryService:
         return self.election_results
 
     def send_lcr_token(self, mid_score, mid_ip, is_leader):
+        if self.ring_successor == "Undefined":
+            ring_order_ips = self.calculate_ring_topology()
+            successor_index = (ring_order_ips.index(self.local_ip) + 1) % len(ring_order_ips)
+            self.ring_successor = ring_order_ips[successor_index]
         try:
             msg = f"LCR_TOKEN:{mid_score}:{mid_ip}:{is_leader}"
-            self.socket.sendto(msg.encode(), (self.ring_successor, self.broadcast_port))
+            # Send 3 times to ensure delivery (UDP redundancy)
+            for _ in range(1):
+                print("Sending LCR token to " + self.ring_successor)
+                self.socket.sendto(msg.encode(), (self.ring_successor, self.broadcast_port))
+                time.sleep(0.05) # Tiny gap between bursts
         except Exception as e:
             print(f"[{self.local_ip}] Error sending LCR token: {e}")
 
@@ -553,12 +628,17 @@ class NetworkDiscoveryService:
             self.current_leader = mid_ip
             self.my_role = "Leader" if mid_ip == self.local_ip else "Worker"
             self.participant = False
-            
-            if self.ring_successor != self.local_ip:
+            print(f"[{self.local_ip}] I have recognized the leader: {mid_ip}")
+            if self.ring_successor != self.local_ip and self.my_role != "Leader":
                 self.send_lcr_token(mid_score, mid_ip, is_leader=True)
+            elif self.my_role == "Leader":
+                print(f"[{self.local_ip}] Election complete. Ending election process.")
+            else:
+                print(f"[{self.local_ip}] Invalid Condition BEEEEP!.")
             
-            device_name = self.discovered_devices.get(mid_ip, {}).get('name', 'Unknown')
-            self.broadcast_election_result(mid_ip, device_name)
+            self.election_active = False
+            # device_name = self.discovered_devices.get(mid_ip, {}).get('name', 'Unknown')
+            # self.broadcast_election_result(mid_ip, device_name)
             
         elif mid_uid < my_uid and not self.participant:
             self.participant = True
@@ -571,21 +651,22 @@ class NetworkDiscoveryService:
         elif mid_ip == self.local_ip:
             self.current_leader = self.local_ip
             self.my_role = "Leader"
+            print(f"[{self.local_ip}] I have won the election and am the Leader.")
             self.participant = False
             self.send_lcr_token(self.current_score, self.local_ip, is_leader=True)
-            self.broadcast_election_result(self.local_ip, self.pc_name)
+            # self.broadcast_election_result(self.local_ip, self.pc_name)
 
-    def broadcast_election_result(self, leader_ip, leader_name):
-        try:
-            msg = f"ELECTION:{leader_ip}:{leader_name}"
-            for addr in self.get_broadcast_addresses():
-                try:
-                    self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
-                    self.election_active = False
-                except:
-                    pass
-        except Exception as e:
-            print(f"Error broadcasting election result: {e}")
+    # def broadcast_election_result(self, leader_ip, leader_name):
+    #     try:
+    #         msg = f"ELECTION:{leader_ip}:{leader_name}"
+    #         for addr in self.get_broadcast_addresses():
+    #             try:
+    #                 self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+    #                 self.election_active = False
+    #             except:
+    #                 pass
+    #     except Exception as e:
+    #         print(f"Error broadcasting election result: {e}")
 
     def get_election_status(self):
         leader_consensus = self.verify_leader_consensus()
