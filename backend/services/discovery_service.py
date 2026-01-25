@@ -628,9 +628,13 @@ class NetworkDiscoveryService:
             self.current_leader = mid_ip
             self.my_role = "Leader" if mid_ip == self.local_ip else "Worker"
             self.participant = False
-            
+            print(f"[{self.local_ip}] I have recognized the leader: {mid_ip}")
             if self.ring_successor != self.local_ip:
                 self.send_lcr_token(mid_score, mid_ip, is_leader=True)
+            elif self.my_role == "Leader":
+                print(f"[{self.local_ip}] Election complete. Ending election process.")
+            else:
+                print(f"[{self.local_ip}] Invalid Condition BEEEEP!.")
             
             self.election_active = False
             # device_name = self.discovered_devices.get(mid_ip, {}).get('name', 'Unknown')
@@ -647,6 +651,7 @@ class NetworkDiscoveryService:
         elif mid_ip == self.local_ip:
             self.current_leader = self.local_ip
             self.my_role = "Leader"
+            print(f"[{self.local_ip}] I have won the election and am the Leader.")
             self.participant = False
             self.send_lcr_token(self.current_score, self.local_ip, is_leader=True)
             # self.broadcast_election_result(self.local_ip, self.pc_name)

@@ -126,7 +126,7 @@ def render_in_progress_jobs():
                 for frame_no in frames:
                     output_template = os.path.join(job_output_path, "#")
                     blender_cmd = [
-                        "blender",
+                        "/Applications/Blender.app/Contents/MacOS/Blender",
                         "--background",
                         os.path.join(folder_path, blend_file),
                         "-o", output_template,
