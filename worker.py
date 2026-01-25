@@ -244,23 +244,23 @@ class MetadataJsonHandler(FileSystemEventHandler):
                 if new_status == "completed_frames":
                     self.on_job_completed(job_folder, data)
                 
-                # ----- Update metadata.json to completed_video -----
-                data["status"] = "completed_video"
-                json_output = json.dumps(data, indent = 4)
+                    # ----- Update metadata.json to completed_video -----
+                    data["status"] = "completed_video"
+                    json_output = json.dumps(data, indent = 4)
 
-                # Marking status as completed in local json file
-                with open(json_path, 'w') as file:
-                    file.write(json_output) 
-                
-                if not data.get("leader_ip"):
-                    print(f"No leader IP found for job {job_folder}")
+                    # Marking status as completed in local json file
+                    with open(json_path, 'w') as file:
+                        file.write(json_output) 
+                    
+                    if not data.get("leader_ip"):
+                        print(f"No leader IP found for job {job_folder}")
 
-                leader_ip = data.get("leader_ip")
-                leader_url = f"http://{leader_ip}:5050/api/jobs/send-video-to-client"
+                    leader_ip = data.get("leader_ip")
+                    leader_url = f"http://{leader_ip}:5050/api/jobs/send-video-to-client"
 
-                response = requests.post(leader_url, json={"uuid": job_folder, "status": new_status, "client_ip": data.get("metadata").get("initiator_client_ip")}, timeout=5)
-                response.raise_for_status()
-                print(f"[+] Notified leader {leader_ip} of status change for job {job_folder}")
+                    response = requests.post(leader_url, json={"uuid": job_folder, "status": new_status, "client_ip": data.get("metadata").get("initiator_client_ip")}, timeout=5)
+                    response.raise_for_status()
+                    print(f"[+] Notified leader {leader_ip} of status change for job {job_folder}")
                 
         except Exception as e:
             print(f"[!] Error reading {json_path}: {e}")
