@@ -291,11 +291,12 @@ def submit_frames():
     if not isinstance(remaining, int) or remaining <= 0:
         return jsonify({"error": "Invalid remaining_frames value"}), 400
 
+    print(f"[-] Received frame no {filename}, updating remaining frames {remaining}")
     metadata["remaining_frames"] = remaining - 1
 
     # Optional: auto-finish job
     if metadata["remaining_frames"] == 0:
-        metadata["status"] = "completed"
+        metadata["status"] = "completed_frames"
 
     with metadata_path.open("w") as f:
         json.dump(metadata, f, indent=2)
@@ -306,3 +307,53 @@ def submit_frames():
         "saved_as": filename,
         "remaining_frames": metadata["remaining_frames"]
     }), 200
+
+@api.get("/jobs/send-video-to-client")
+def send_video_to_client():
+    job_id = request.data.get("uuid")
+    client_ip = request.data.get("client_ip")
+    if not job_id:
+        return jsonify({"error": "uuid is required"}), 
+
+    if not client_ip:
+        return jsonify({"error": "No client IP found in metadata"}), 400
+
+    job_path = Path(JOBS_DIR) / job_id
+    if not job_path.is_dir():
+        return jsonify({"error": "Job folder not found"}), 404
+
+    metadata_path = job_path / "metadata.json"
+    if not metadata_path.is_file():
+        return jsonify({"error": "metadata.json not found"}), 400
+
+    with metadata_path.open("r") as f:
+        metadata = json.load(f)
+
+    video_path = job_path / "renders/output_video.mp4"
+    if not video_path.is_file():
+        return jsonify({"error": "Output video not found"}), 404
+
+    client_url = f"http://{client_ip}:5050/api/jobs/receive-video"
+
+    try:
+        with open(video_path, "rb") as vf:
+            response = requests.post(
+                client_url,
+                data={"uuid": job_id},
+                files={"video_file": vf},
+                timeout=30
+            )
+
+        if response.status_code != 200:
+            return jsonify({
+                "error": "Client rejected video",
+                "details": response.text
+            }), 502
+
+        return jsonify({
+            "message": "Video successfully sent to client",
+            "client": client_ip
+        }), 200
+
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 502

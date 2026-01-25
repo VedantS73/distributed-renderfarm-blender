@@ -63,13 +63,40 @@ class FolderHandler(FileSystemEventHandler):
             base_frames = total_frames // workers
             extra_frames = total_frames % workers
 
+            total_score=0
+            assigned_frames=0
+            for worker_id in range(1, workers + 1):
+                total_score+=data["scores"][worker_id]
+
+            count = {}
+            for worker_id in range(1, workers + 1):
+                count[worker_id] = int((data["scores"][worker_id]/total_score)*total_frames)
+
             jobs = {}
             current_frame = frame_start
             for worker_id in range(1, workers + 1):
-                count = base_frames + (1 if worker_id <= extra_frames else 0)
-                frames = list(range(current_frame, current_frame + count))
+                #count = base_frames + (1 if worker_id <= extra_frames else 0)
+                frames = list(range(current_frame, current_frame + count[worker_id]))
+                assigned_frames += len(frames)
                 jobs[str(worker_id)] = frames
-                current_frame += count
+                current_frame += count[worker_id]
+
+            remaining_frames = total_frames - assigned_frames
+            while remaining_frames > 0:
+                for worker_id in range(1, workers + 1):
+                    if remaining_frames <= 0:
+                        break
+                    jobs[str(worker_id)].append(current_frame)
+                    current_frame += 1
+                    remaining_frames -= 1
+                    
+            # jobs = {}
+            # current_frame = frame_start
+            # for worker_id in range(1, workers + 1):
+            #     count = base_frames + (1 if worker_id <= extra_frames else 0)
+            #     frames = list(range(current_frame, current_frame + count))
+            #     jobs[str(worker_id)] = frames
+            #     current_frame += count
 
             data["status"] = "in_progress"
             data["jobs"] = jobs
@@ -167,14 +194,15 @@ def render_in_progress_jobs():
                 if os.path.exists('render_output'):
                     shutil.rmtree('render_output')
 
-                data['status'] = 'completed'
-                json_output = json.dumps(data, indent = 4)
+                # if i am not the leader, no need to update status to completed
+                if discovery.local_ip != data.get("leader_ip"):
+                    data['status'] = 'completed'
+                    json_output = json.dumps(data, indent = 4)
 
-                # Marking status as completed in local json file
-                with open(json_path, 'w') as file:
-                    file.write(json_output)
-
-                    
+                    # Marking status as completed in local json file
+                    with open(json_path, 'w') as file:
+                        file.write(json_output)
+ 
                 # Finished all frames for this node
                 processed_blender_jobs.append(job_folder)
 
@@ -213,9 +241,27 @@ class MetadataJsonHandler(FileSystemEventHandler):
                 self.last_status[job_folder] = new_status
 
                 # ---- react to specific status ----
-                if new_status == "completed":
+                if new_status == "completed_frames":
                     self.on_job_completed(job_folder, data)
+                
+                # ----- Update metadata.json to completed_video -----
+                data["status"] = "completed_video"
+                json_output = json.dumps(data, indent = 4)
 
+                # Marking status as completed in local json file
+                with open(json_path, 'w') as file:
+                    file.write(json_output) 
+                
+                if not data.get("leader_ip"):
+                    print(f"No leader IP found for job {job_folder}")
+
+                leader_ip = data.get("leader_ip")
+                leader_url = f"http://{leader_ip}:5050/api/jobs/send-video-to-client"
+
+                response = requests.post(leader_url, json={"uuid": job_folder, "status": new_status, "client_ip": data.get("metadata").get("initiator_client_ip")}, timeout=5)
+                response.raise_for_status()
+                print(f"[+] Notified leader {leader_ip} of status change for job {job_folder}")
+                
         except Exception as e:
             print(f"[!] Error reading {json_path}: {e}")
 
@@ -227,6 +273,8 @@ class MetadataJsonHandler(FileSystemEventHandler):
             fps = data["metadata"].get("fps", 24)
 
             stitch_pngs_to_video(frames_dir, output_video, fps)
+
+            print(f"[✅] Video stitched for job {job_folder}: {output_video}")
 
         except Exception as e:
             print(f"[!] Error stitching video for job {job_folder}: {e}")
