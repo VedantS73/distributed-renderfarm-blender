@@ -8,6 +8,11 @@ from threading import Thread
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from backend.shared.state import discovery
+from dotenv import load_dotenv
+
+load_dotenv('.env')
+BLENDER_PATH = os.getenv("BLENDER_PATH") or "blender"
+print("Starting Worker with Blender Binary at : " + BLENDER_PATH)
 
 WATCH_DIR = "jobs"
 JSON_FILENAME = "metadata.json"
@@ -126,7 +131,7 @@ def render_in_progress_jobs():
                 for frame_no in frames:
                     output_template = os.path.join(job_output_path, "#")
                     blender_cmd = [
-                        "blender",
+                        BLENDER_PATH,
                         "--background",
                         os.path.join(folder_path, blend_file),
                         "-o", output_template,
