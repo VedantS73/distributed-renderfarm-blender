@@ -130,6 +130,8 @@ def render_in_progress_jobs():
                 leader_ip = data.get("leader_ip")
                 leader_url = f"http://{leader_ip}:5050/api/jobs/submit-frames"
 
+                num_frames_sent_leader = 0
+
                 # --- FRAME-BY-FRAME RENDER & UPLOAD ---
                 for frame_no in frames:
                     output_template = os.path.join(job_output_path, "#")
@@ -156,9 +158,23 @@ def render_in_progress_jobs():
                         )
                         if response.status_code == 200:
                             print(f"[+] Sent frame {frame_no} successfully")
+                            num_frames_sent_leader += 1
                         else:
                             print(f"[!] Failed to send frame {frame_no}: {response.text}")
 
+                if(num_frames_sent_leader == len(frames)):
+                    print('All frames processed. Deleting temporary folders')
+                    if os.path.exists('render_output'):
+                        shutil.rmtree('render_output')
+
+                    data['status'] = 'completed'
+                    json_output = json.dump(data)
+
+                    # Marking status as completed in local json file
+                    with open(json_path, 'w') as file:
+                        file.write(json_output)
+
+                    
                 # Finished all frames for this node
                 processed_blender_jobs.append(job_folder)
 
