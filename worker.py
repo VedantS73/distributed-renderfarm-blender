@@ -124,8 +124,11 @@ def render_in_progress_jobs():
                 job_output_path = os.path.join(os.getcwd(), "render_output", job_folder)
                 os.makedirs(job_output_path, exist_ok=True)
 
-                leader_ip = discovery.get_election_status()["current_leader"]
-                leader_url = f"http://127.0.0.1:5050/api/jobs/submit-frames"
+                if not data.get("leader_ip"):
+                    print(f"No leader IP found for job {job_folder}")
+                    continue
+                leader_ip = data.get("leader_ip")
+                leader_url = f"http://{leader_ip}:5050/api/jobs/submit-frames"
 
                 # --- FRAME-BY-FRAME RENDER & UPLOAD ---
                 for frame_no in frames:
