@@ -118,7 +118,9 @@ def create_job():
     # 2. Read metadata
     metadata = request.form.to_dict()
 
+    no_of_nodes = len(discovery.ring_topology)
     if metadata.get('initiator_is_participant') == 'undefined':
+        no_of_nodes -= 1
         metadata['initiator_is_participant'] = False
     else:
         metadata["initiator_is_participant"] = True
@@ -134,15 +136,20 @@ def create_job():
     file.save(file_path)
 
     # 6. Persist metadata (optional but highly recommended)
+    print(discovery.discovered_devices)
+    scores = {}
+    for ip, data  in discovery.discovered_devices.items():
+        scores[ip] = data.get('resource_score', 0)
+    
     metadata_payload = {
         "job_id": job_id,
         "filename": filename,
         "created_at": datetime.datetime.utcnow().isoformat(),
         "metadata": metadata,
         "status": "created",
-        "no_of_nodes": len(discovery.ring_topology),
+        "no_of_nodes": no_of_nodes,
         "leader_ip": discovery.local_ip,
-        "scores": {worker['ip']: worker.get('resource_score', 0) for worker in discovery.discovered_devices}
+        "scores": scores
     }
 
     metadata_path = os.path.join(job_dir, "metadata.json")
@@ -195,16 +202,24 @@ def broadcast_job_to_workers():
     # --- Update jobs keys with IPs ---
     with open(json_file, "r+") as jf:
         metadata = json.load(jf)
+        initiator_client_ip = metadata.get("metadata", {}).get("initiator_client_ip")
         old_jobs = metadata.get("jobs", {})
 
         # Map old numeric keys to IPs from discovery.ring_topology
         new_jobs = {}
         worker_ips = [w['ip'] for w in discovery.ring_topology]
 
-        for idx, ip in enumerate(worker_ips):
+        print("==================================================================")
+        print("Old Jobs Keys:", old_jobs)
+        print("==================================================================")
+        idx=0
+        for ip in worker_ips:
+            if initiator_client_ip == ip and not metadata["metadata"].get("initiator_is_participant", False):
+                continue
             old_key = str(idx + 1)  # old keys are "1", "2", ...
             if old_key in old_jobs:
                 new_jobs[ip] = old_jobs[old_key]
+            idx+=1
 
         metadata["jobs"] = new_jobs
 

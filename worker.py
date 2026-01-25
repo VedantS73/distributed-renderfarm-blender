@@ -52,8 +52,8 @@ class FolderHandler(FileSystemEventHandler):
             frame_start = int(data["metadata"]["frame_start"])
             frame_end = int(data["metadata"]["frame_end"])
             workers = int(data["no_of_nodes"])
-            if not data["metadata"].get("initiator_is_participant", True):
-                workers -= 1
+            # if not data["metadata"].get("initiator_is_participant", True):
+            #     workers -= 1
 
             if frame_end < frame_start or workers <= 0:
                 print("[!] Invalid frame range or worker count")
@@ -63,40 +63,13 @@ class FolderHandler(FileSystemEventHandler):
             base_frames = total_frames // workers
             extra_frames = total_frames % workers
 
-            total_score=0
-            assigned_frames=0
-            for worker_id in range(1, workers + 1):
-                total_score+=data["scores"][worker_id]
-
-            count = {}
-            for worker_id in range(1, workers + 1):
-                count[worker_id] = int((data["scores"][worker_id]/total_score)*total_frames)
-
             jobs = {}
             current_frame = frame_start
             for worker_id in range(1, workers + 1):
-                #count = base_frames + (1 if worker_id <= extra_frames else 0)
-                frames = list(range(current_frame, current_frame + count[worker_id]))
-                assigned_frames += len(frames)
+                count = base_frames + (1 if worker_id <= extra_frames else 0)
+                frames = list(range(current_frame, current_frame + count))
                 jobs[str(worker_id)] = frames
-                current_frame += count[worker_id]
-
-            remaining_frames = total_frames - assigned_frames
-            while remaining_frames > 0:
-                for worker_id in range(1, workers + 1):
-                    if remaining_frames <= 0:
-                        break
-                    jobs[str(worker_id)].append(current_frame)
-                    current_frame += 1
-                    remaining_frames -= 1
-                    
-            # jobs = {}
-            # current_frame = frame_start
-            # for worker_id in range(1, workers + 1):
-            #     count = base_frames + (1 if worker_id <= extra_frames else 0)
-            #     frames = list(range(current_frame, current_frame + count))
-            #     jobs[str(worker_id)] = frames
-            #     current_frame += count
+                current_frame += count
 
             data["status"] = "in_progress"
             data["jobs"] = jobs
