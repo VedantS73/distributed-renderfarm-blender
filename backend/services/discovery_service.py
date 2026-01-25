@@ -236,15 +236,15 @@ class NetworkDiscoveryService:
                         is_leader = parts[3] == "True"
                         self.handle_lcr_token(mid_score, mid_ip, is_leader)
                 
-                elif msg.startswith("ELECTION:"):
-                    print("Election result message received.")
-                    print(msg)
-                    parts = msg.split(":")
-                    if len(parts) >= 3:
-                        leader_ip, leader_name = parts[1], parts[2]
-                        self.current_leader = leader_ip
-                        self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
-                        self.election_active = True
+                # elif msg.startswith("ELECTION:"):
+                #     print("Election result message received.")
+                #     print(msg)
+                #     parts = msg.split(":")
+                #     if len(parts) >= 3:
+                #         leader_ip, leader_name = parts[1], parts[2]
+                #         self.current_leader = leader_ip
+                #         self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
+                #         self.election_active = True
             except:
                 continue
 
@@ -591,7 +591,7 @@ class NetworkDiscoveryService:
             self.current_leader = self.local_ip
             self.my_role = "Leader"
             self.election_active = False
-            self.broadcast_election_result(self.local_ip, self.pc_name)
+            # self.broadcast_election_result(self.local_ip, self.pc_name)
             return
               
         if not self.participant:
@@ -649,19 +649,19 @@ class NetworkDiscoveryService:
             self.my_role = "Leader"
             self.participant = False
             self.send_lcr_token(self.current_score, self.local_ip, is_leader=True)
-            self.broadcast_election_result(self.local_ip, self.pc_name)
+            # self.broadcast_election_result(self.local_ip, self.pc_name)
 
-    def broadcast_election_result(self, leader_ip, leader_name):
-        try:
-            msg = f"ELECTION:{leader_ip}:{leader_name}"
-            for addr in self.get_broadcast_addresses():
-                try:
-                    self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
-                    self.election_active = False
-                except:
-                    pass
-        except Exception as e:
-            print(f"Error broadcasting election result: {e}")
+    # def broadcast_election_result(self, leader_ip, leader_name):
+    #     try:
+    #         msg = f"ELECTION:{leader_ip}:{leader_name}"
+    #         for addr in self.get_broadcast_addresses():
+    #             try:
+    #                 self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+    #                 self.election_active = False
+    #             except:
+    #                 pass
+    #     except Exception as e:
+    #         print(f"Error broadcasting election result: {e}")
 
     def get_election_status(self):
         leader_consensus = self.verify_leader_consensus()
