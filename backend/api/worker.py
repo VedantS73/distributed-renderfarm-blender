@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, json
 import tempfile, uuid, os, requests, datetime
 from werkzeug.utils import secure_filename
 from backend.shared.state import blender, discovery
@@ -68,7 +68,27 @@ def stop_render():
     data = request.get_json()
     ip = data.get("ip")
     job_id = data.get("job_id")
+    
+    job_path = os.path.join(JOBS_DIR, job_id)
+    metadata_path = os.path.join(job_path, "metadata.json")
 
+    if not os.path.isdir(job_path) or not os.path.exists(metadata_path):
+        pass
+    else:
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            
+            print("Metadata loaded for stopping render")
+            if metadata.get("status") == "in_progress":
+                metadata["status"] = "canceled"
+                with open(metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2)
+
+                print(f"Render for Job ID: {job_id} has been stopped due to node disconnection.")
+        except Exception as e:
+            print(f"[WARN] Failed processing {metadata_path} for stopping render: {e}")
+        
     if not ip or not job_id:
         return jsonify({"success": False, "message": "IP address or Job ID not provided."}), 400
 

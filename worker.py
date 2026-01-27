@@ -26,8 +26,6 @@ processed_blender_jobs = []
 # WATCHDOG HANDLER
 # ==========================================
 
-on_deleted_job = False
-
 class FolderHandler(FileSystemEventHandler):
 
     def on_created(self, event):
@@ -89,23 +87,12 @@ class FolderHandler(FileSystemEventHandler):
 
         except Exception as e:
             print("[!] Error handling folder:", e)
-    
-    def on_deleted(self, event):
-        if not event.is_directory:
-            return
-        
-        folder_path = event.src_path
-        print(f"[+] Folder deleted: {folder_path}")
-        
-        global on_deleted_job
-        on_deleted_job = True
         
 # ==========================================
 # RENDERING LOOP
 # ==========================================
 
 def render_in_progress_jobs():
-    global on_deleted_job
     while True:
         try:
             for job_folder in os.listdir(WATCH_DIR):
@@ -150,18 +137,11 @@ def render_in_progress_jobs():
                 # --- FRAME-BY-FRAME RENDER & UPLOAD ---
                 for frame_no in frames:
                     
-                    print("BLEND DETECTIVE ====? ",on_deleted_job)
-                    if on_deleted_job:
-                        print(f"[!] Render operation cancelled for job {job_folder}. Exiting render loop.")
-                        on_deleted_job = False
-                        data['status'] = 'canceled'
-                        json_output = json.dumps(data, indent = 4)
-
-                        # Marking status as canceled in local json file
-                        with open(json_path, 'w') as file:
-                            file.write(json_output)
-                        
-                        processed_blender_jobs.append(job_folder)
+                    with open(json_path, 'r') as file:
+                        data = json.load(file)
+                    
+                    if data['status'] != 'in_progress':
+                        print(f"[!] Job {job_folder} status changed to {data['status']}. Stopping render.")
                         break
                     
                     output_template = os.path.join(job_output_path, "#")
