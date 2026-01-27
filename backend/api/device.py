@@ -36,16 +36,19 @@ def my_device():
 
 @api.post("/node_disconnected")
 def node_disconnected():
-    print("/node_disconnected called ======= STEP 1 TO CLIENT DISCONNECTION  =======")
+    print("1. client has detected a node going down -> ", request.get_json())
     data = request.get_json()
     ip = data.get("ip")
+    print("2. processing disconnection for IP -> ", ip)
     if ip:
         print(ip)
         discovery.pop_key(ip)
         
         curr_leader_ip = discovery.current_leader
+        print("Notifying current leader about disconnection... LEADR IP: " + str(curr_leader_ip))
         print("Current Leader IP:", curr_leader_ip)
         if curr_leader_ip:
+            print("Sending notification to leader at IP:", curr_leader_ip)
             requests.post(f"http://{curr_leader_ip}:5050/api/election/notify_node_disconnection", json={"ip": ip})
         return jsonify({"success": True, "message": f"Device with IP {ip} removed."})
     else:
