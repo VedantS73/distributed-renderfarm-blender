@@ -40,7 +40,7 @@ def clear():
 def start_election():
     if "force_remove" in  request.args:
         force_remove_ip = request.args.get("force_remove")
-        discovery.pop_key_from_discovered(force_remove_ip)
+        discovery.pop_leader(force_remove_ip)
         print(f"Force removed device with IP: {force_remove_ip}")
     print("Election start requested via API")
     print("Current discovered devices:", discovery.get_devices())
@@ -97,7 +97,7 @@ def notify_node_disconnection():
             print(f"[WARN] Failed processing {metadata_path}: {e}")
 
     # 3. Remove node from discovery
-    discovery.pop_key_from_discovered(ip)
+    discovery.pop_leader(ip)
 
     return jsonify({
         "success": True,

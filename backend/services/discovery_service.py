@@ -518,8 +518,13 @@ class NetworkDiscoveryService:
 
     def get_devices(self):
         return list(self.discovered_devices.values())
+
+    def pop_key(self, key):
+        print(f"Popping device with IP: {key}")
+        if key in self.discovered_devices:
+            del self.discovered_devices[key]
     
-    def pop_key_from_discovered(self, key):
+    def pop_leader(self, key):
         if key in self.discovered_devices:
             del self.discovered_devices[key]
             msg = f"POP_STALE_LEADER:{key}"

@@ -40,7 +40,7 @@ def node_disconnected():
     data = request.get_json()
     ip = data.get("ip")
     if ip:
-        discovery.pop_key_from_discovered(ip)
+        discovery.pop_key(ip)
         
         curr_leader_ip = discovery.current_leader
         if curr_leader_ip:
