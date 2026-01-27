@@ -26,6 +26,8 @@ processed_blender_jobs = []
 # WATCHDOG HANDLER
 # ==========================================
 
+on_deleted_job = False
+
 class FolderHandler(FileSystemEventHandler):
 
     def on_created(self, event):
@@ -87,7 +89,17 @@ class FolderHandler(FileSystemEventHandler):
 
         except Exception as e:
             print("[!] Error handling folder:", e)
-
+    
+    def on_deleted(self, event):
+        if not event.is_directory:
+            return
+        
+        folder_path = event.src_path
+        print(f"[+] Folder deleted: {folder_path}")
+        
+        global on_deleted_job
+        on_deleted_job = True
+        
 # ==========================================
 # RENDERING LOOP
 # ==========================================
@@ -137,9 +149,10 @@ def render_in_progress_jobs():
                 # --- FRAME-BY-FRAME RENDER & UPLOAD ---
                 for frame_no in frames:
                     
-                    if discovery.blend_operation_cancelled:
+                    print("BLEND DETECTIVE ====? ",on_deleted_job)
+                    if on_deleted_job:
                         print(f"[!] Render operation cancelled for job {job_folder}. Exiting render loop.")
-                        discovery.blend_operation_cancelled = False
+                        on_deleted_job = False
                         data['status'] = 'canceled'
                         json_output = json.dumps(data, indent = 4)
 

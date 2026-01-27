@@ -4,10 +4,14 @@ import time
 import platform
 import netifaces
 import psutil
+import shutil
 import os
 import json
 from datetime import datetime
 from .blender_service import BlenderService
+JOBS_DIR = "jobs"
+os.makedirs(JOBS_DIR, exist_ok=True)
+
 class NetworkDiscoveryService:
     def __init__(self):
         self.broadcast_port = 8888
@@ -254,6 +258,13 @@ class NetworkDiscoveryService:
                     print("Client Disconnected, Cancelling Render Operations on all Workers.")
                     if self.my_role != "Leader":
                         self.blend_operation_cancelled = True
+                        for directory in os.listdir(JOBS_DIR):
+                            job_path = os.path.join(JOBS_DIR, directory)
+                            try:
+                                shutil.rmtree(job_path)
+                                print(f"[{self.local_ip}] Cleared job directory: {job_path}")
+                            except:
+                                continue
                     
             except:
                 continue
