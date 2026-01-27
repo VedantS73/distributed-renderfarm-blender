@@ -56,6 +56,7 @@ def get_election_status():
 
 @api.post("/election/notify_node_disconnection")
 def notify_node_disconnection():
+    print("/election/notify_node_disconnection called ======= STEP 2 TO CLIENT DISCONNECTION  =======")
     data = request.get_json()
     ip = data.get("ip")
 
@@ -65,6 +66,7 @@ def notify_node_disconnection():
     affected_jobs = []
 
     # 1. Scan all job folders
+    print(f"Processing node disconnection for IP: {ip}")
     for job_id in os.listdir(JOBS_DIR):
         job_path = os.path.join(JOBS_DIR, job_id)
         metadata_path = os.path.join(job_path, "metadata.json")
@@ -75,12 +77,15 @@ def notify_node_disconnection():
         try:
             with open(metadata_path, "r", encoding="utf-8") as f:
                 metadata = json.load(f)
+            
+            print("Metadata loaded")
 
             # 2. Check if job is in progress and owned by this node
             if metadata.get("status") == "in_progress":
                 initiator_client_ip = metadata.get("metadata", {}).get("initiator_client_ip")
 
                 if initiator_client_ip == ip:
+                    print(f"Resetting job {job_id} due to node disconnection.")
                     metadata["status"] = "canceled"
 
                     with open(metadata_path, "w", encoding="utf-8") as f:

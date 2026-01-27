@@ -36,6 +36,7 @@ def my_device():
 
 @api.post("/node_disconnected")
 def node_disconnected():
+    print("/node_disconnected called ======= STEP 1 TO CLIENT DISCONNECTION  =======")
     data = request.get_json()
     ip = data.get("ip")
     if ip:
