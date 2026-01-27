@@ -245,6 +245,8 @@ class NetworkDiscoveryService:
                             del self.discovered_devices[stale_ip]
                             print(f"[{self.local_ip}] Removed stale leader: {stale_ip}")
                             print("Current discovered devices:", self.get_devices())
+                            self.calculate_ring_topology()
+                            print("Updated ring topology:", self.ring_topology)
             except:
                 continue
 
