@@ -324,18 +324,26 @@ def submit_frames():
         "remaining_frames": metadata["remaining_frames"]
     }), 200
 
-@api.get("/jobs/send-video-to-client")
+@api.post("/jobs/send-video-to-client")
 def send_video_to_client():
-    job_id = request.data.get("uuid")
-    client_ip = request.data.get("client_ip")
+    job_id = request.form.get("uuid")
+    status = request.form.get("status")
+    client_ip = request.form.get("client_ip")
+    video = request.files.get("video")
+    print(request.files)
+    
+    print("Received video upload request")
     if not job_id:
-        return jsonify({"error": "uuid is required"}), 
+        print("Job ID missing in request")
+        return jsonify({"error": "uuid is required"}), 400
 
-    if not client_ip:
-        return jsonify({"error": "No client IP found in metadata"}), 400
-
+    if not video:
+        print("Video file missing in request")
+        return jsonify({"error": "video file is missing"}), 400
+    
     job_path = Path(JOBS_DIR) / job_id
     if not job_path.is_dir():
+        print("Job folder not found")
         return jsonify({"error": "Job folder not found"}), 404
 
     metadata_path = job_path / "metadata.json"
@@ -345,31 +353,16 @@ def send_video_to_client():
     with metadata_path.open("r") as f:
         metadata = json.load(f)
 
-    video_path = job_path / "renders/output_video.mp4"
-    if not video_path.is_file():
-        return jsonify({"error": "Output video not found"}), 404
+    video_path = job_path / "output_video.mp4"
+    video.save(video_path)
 
-    client_url = f"http://{client_ip}:5050/api/jobs/receive-video"
+    print(f"[+] Received video for job {job_id}")
+    print(f"    Status     : {status}")
+    print(f"    From IP    : {client_ip}")
+    print(f"    Saved at   : {video_path}")
 
-    try:
-        with open(video_path, "rb") as vf:
-            response = requests.post(
-                client_url,
-                data={"uuid": job_id},
-                files={"video_file": vf},
-                timeout=30
-            )
-
-        if response.status_code != 200:
-            return jsonify({
-                "error": "Client rejected video",
-                "details": response.text
-            }), 502
-
-        return jsonify({
-            "message": "Video successfully sent to client",
-            "client": client_ip
-        }), 200
-
-    except requests.RequestException as e:
-        return jsonify({"error": str(e)}), 502
+    return jsonify({
+        "message": "Video received successfully",
+        "job_id": job_id,
+        "path": str(video_path)
+    }), 200
