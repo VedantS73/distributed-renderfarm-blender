@@ -92,6 +92,9 @@ def notify_node_disconnection():
                         json.dump(metadata, f, indent=2)
 
                     affected_jobs.append(job_id)
+                    
+                    discovery.blend_operation_cancelled = True
+                    discovery.send_client_disconnection()
 
         except Exception as e:
             print(f"[WARN] Failed processing {metadata_path}: {e}")

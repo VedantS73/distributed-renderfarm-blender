@@ -31,6 +31,7 @@ class NetworkDiscoveryService:
         # Initial score calculation
         self.current_score = 0
         self.ring_topology = []
+        self.blend_operation_cancelled = False
         
         # LCR / Election State
         self.ring_successor = "Undefined"
@@ -248,6 +249,12 @@ class NetworkDiscoveryService:
                             print("Current discovered devices:", self.get_devices())
                             self.calculate_ring_topology()
                             print("Updated ring topology:", self.ring_topology)
+                
+                elif msg.startswith("CLIENT_DISCONNECTED"):
+                    print("Client Disconnected, Cancelling Render Operations on all Workers.")
+                    if self.my_role != "Leader":
+                        self.blend_operation_cancelled = True
+                    
             except:
                 continue
 
@@ -718,3 +725,14 @@ class NetworkDiscoveryService:
             "agreed_leader": self.current_leader,
             "total_nodes": len(self.discovered_devices)
         }
+    
+    def send_client_disconnection(self):
+        msg = f"CLIENT_DISCONNECTED"
+        try:
+            for addr in self.get_broadcast_addresses():
+                if addr.startswith('255') or addr.startswith('127'):
+                    continue
+                self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+            print(f"[{self.local_ip}] Broadcasted client disconnection message.")
+        except Exception as e:
+            print(f"[{self.local_ip}] Error broadcasting client disconnection: {e}")

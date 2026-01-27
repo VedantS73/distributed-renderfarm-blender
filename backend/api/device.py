@@ -43,8 +43,9 @@ def node_disconnected():
         discovery.pop_key(ip)
         
         curr_leader_ip = discovery.current_leader
+        print("Current Leader IP:", curr_leader_ip)
         if curr_leader_ip:
-            requests.post(f"http://{curr_leader_ip}:5000/api/election/notify_node_disconnection", json={"ip": ip})
+            requests.post(f"http://{curr_leader_ip}:5050/api/election/notify_node_disconnection", json={"ip": ip})
         return jsonify({"success": True, "message": f"Device with IP {ip} removed."})
     else:
         return jsonify({"success": False, "message": "IP address not provided."}), 400

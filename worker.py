@@ -10,6 +10,7 @@ from watchdog.events import FileSystemEventHandler
 from backend.shared.state import discovery
 from dotenv import load_dotenv
 from backend.services.ffmpeg_service import stitch_pngs_to_video
+from backend.shared.state import discovery
 
 load_dotenv('.env')
 BLENDER_PATH = os.getenv("BLENDER_PATH") or "blender"
@@ -135,6 +136,20 @@ def render_in_progress_jobs():
 
                 # --- FRAME-BY-FRAME RENDER & UPLOAD ---
                 for frame_no in frames:
+                    
+                    if discovery.blend_operation_cancelled:
+                        print(f"[!] Render operation cancelled for job {job_folder}. Exiting render loop.")
+                        discovery.blend_operation_cancelled = False
+                        data['status'] = 'canceled'
+                        json_output = json.dumps(data, indent = 4)
+
+                        # Marking status as canceled in local json file
+                        with open(json_path, 'w') as file:
+                            file.write(json_output)
+                        
+                        processed_blender_jobs.append(job_folder)
+                        break
+                    
                     output_template = os.path.join(job_output_path, "#")
                     blender_cmd = [
                         BLENDER_PATH,
@@ -270,6 +285,11 @@ class MetadataJsonHandler(FileSystemEventHandler):
             frames_dir = os.path.join("jobs", job_folder, "renders")
             output_video = os.path.join(frames_dir, "output_video.mp4")
             fps = data["metadata"].get("fps", 24)
+            
+            if discovery.blend_operation_cancelled:
+                print(f"[!] Video stitching cancelled for job {job_folder}. Exiting stitching process.")
+                discovery.blend_operation_cancelled = False
+                return 
 
             stitch_pngs_to_video(frames_dir, output_video, fps)
 
