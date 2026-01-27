@@ -58,18 +58,21 @@ const DevicesSystemSidebar = ({ collapsed }) => {
       setLeaderDevice(leader);
       setShowLeaderDownModal(true);
 
-      try {
-        const response = axios.post(`${API_BASE}/leader_is_down_flag`);
+      const notifyLeaderDown = async () => {
+        try {
+          const response = await axios.post(
+            `${API_BASE}/leader_is_down_flag`
+          );
 
-        if (response.data.leader_is_down) {
-          setFatalCrashDetected(true);
+          if (response.data.leader_is_down) {
+            setFatalCrashDetected(true);
+          }
+        } catch (err) {
+          console.error("Failed to hit leader_is_down_flag", err);
         }
-      } catch (err) {
-        console.error(
-          `Failed to notify disconnection of device ${name} (${ip})`,
-          err,
-        );
-      }
+      };
+
+      notifyLeaderDown();
     }
   }, [devices, leaderElected]);
 
