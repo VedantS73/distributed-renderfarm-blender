@@ -1,10 +1,13 @@
-from flask import Blueprint, jsonify, request
+import os
+from flask import Blueprint, jsonify, request, json
 import psutil, shutil
 from backend.shared.state import discovery
 import requests
 
 api = Blueprint("device_api", __name__)
-
+JOBS_DIR = "jobs"
+os.makedirs(JOBS_DIR, exist_ok=True)
+    
 def is_installed(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
@@ -53,3 +56,30 @@ def node_disconnected():
         return jsonify({"success": True, "message": f"Device with IP {ip} removed."})
     else:
         return jsonify({"success": False, "message": "IP address not provided."}), 400
+
+@api.get("/leader_is_down_flag")
+def leader_is_down_flag():
+    crashed_leader_ip = False
+    for job_id in os.listdir(JOBS_DIR):
+        job_path = os.path.join(JOBS_DIR, job_id)
+        metadata_path = os.path.join(job_path, "metadata.json")
+
+        if not os.path.isdir(job_path) or not os.path.exists(metadata_path):
+            continue
+
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            
+            print("Metadata loaded")
+            # 2. Check if job is in progress and owned by this node
+            if metadata.get("status") == "in_progress":
+                metadata["status"] = "canceled"
+                crashed_leader_ip = True
+                with open(metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2)
+                
+        except Exception as e:
+            print(f"[WARN] Failed processing {metadata_path}: {e}")
+            
+    return jsonify({"leader_is_down": crashed_leader_ip})
