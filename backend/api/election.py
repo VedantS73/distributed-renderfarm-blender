@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from backend.shared.state import discovery
 
 api = Blueprint("election_api", __name__)
@@ -34,6 +34,12 @@ def clear():
 
 @api.post("/election/start")
 def start_election():
+    if "force_remove" in  request.args:
+        force_remove_ip = request.args.get("force_remove")
+        discovery.pop_key_from_discovered(force_remove_ip)
+        print(f"Force removed device with IP: {force_remove_ip}")
+    print("Election start requested via API")
+    print("Current discovered devices:", discovery.get_devices())
     discovery.initiate_election()
     return jsonify({
         "status": "Election Initiated",

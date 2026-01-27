@@ -236,15 +236,13 @@ class NetworkDiscoveryService:
                         is_leader = parts[3] == "True"
                         self.handle_lcr_token(mid_score, mid_ip, is_leader)
                 
-                # elif msg.startswith("ELECTION:"):
-                #     print("Election result message received.")
-                #     print(msg)
-                #     parts = msg.split(":")
-                #     if len(parts) >= 3:
-                #         leader_ip, leader_name = parts[1], parts[2]
-                #         self.current_leader = leader_ip
-                #         self.my_role = "Leader" if leader_ip == self.local_ip else "Worker"
-                #         self.election_active = True
+                elif msg.startswith("POP_STALE_LEADER:"):
+                    print("Removing Stale Leader.")
+                    parts = msg.split(":")
+                    if len(parts) >= 2:
+                        stale_ip = parts[1]
+                        self.pop_key_from_discovered(stale_ip)
+                        print(f"[{self.local_ip}] Removed stale leader: {stale_ip}")
             except:
                 continue
 
@@ -515,11 +513,20 @@ class NetworkDiscoveryService:
 
     def get_devices(self):
         return list(self.discovered_devices.values())
-
-    # [Previous LCR election methods remain the same - calculate_ring_topology, 
-    # initiate_election, run_election_simulation, send_lcr_token, 
-    # handle_lcr_token, broadcast_election_result, get_election_status, 
-    # verify_leader_consensus]
+    
+    def pop_key_from_discovered(self, key):
+        if key in self.discovered_devices:
+            del self.discovered_devices[key]
+            msg = f"POP_STALE_LEADER:{key}"
+            for addr in self.get_broadcast_addresses():
+                if addr.startswith('255') or addr.startswith('127'):
+                    continue
+                try:
+                    self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+                except:
+                    pass
+            print(f"Force broadcasted removal of stale leader: {key}")
+            time.sleep(3)
     
     def calculate_ring_topology(self):
         all_nodes = sorted(self.discovered_devices.keys())
