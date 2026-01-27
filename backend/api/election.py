@@ -1,5 +1,5 @@
 import os
-import shutil
+import requests
 from flask import Blueprint, json, jsonify, request
 from backend.shared.state import discovery
 
@@ -94,11 +94,13 @@ def notify_node_disconnection():
 
                     affected_jobs.append(job_id)
                     
-                    discovery.send_client_disconnection()
+                    # discovery.send_client_disconnection()
+                    devices = discovery.discovered_devices
+                    for device_ip, device_info in devices.items():
+                        requests.post(f"http://{device_ip}:5050/api/worker/stop-render", json={"ip": ip, "job_id": job_id})
+                            
         except Exception as e:
             print(f"[WARN] Failed processing {metadata_path}: {e}")
-
-
 
     return jsonify({
         "success": True,

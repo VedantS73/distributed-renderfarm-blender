@@ -63,7 +63,24 @@ def submit_job():
         "job_dir": job_dir
     }), 201
 
-@api.post("/worker/submit-render-to-leader")
-def submit_render_to_leader():
-    pass
+@api.post("/worker/stop-render")
+def stop_render():
+    data = request.get_json()
+    ip = data.get("ip")
+    job_id = data.get("job_id")
+
+    if not ip or not job_id:
+        return jsonify({"success": False, "message": "IP address or Job ID not provided."}), 400
+
+    print(f"Stopping render for Job ID: {job_id} from IP: {ip}")
+
+    # # Here you would add logic to actually stop the rendering process.
+    # # This is a placeholder implementation.
+    # job_path = os.path.join(JOBS_DIR, job_id)
+    # if os.path.exists(job_path):
+    #     # Logic to stop rendering would go here
+    #     print(f"Render for Job ID: {job_id} has been stopped.")
+    #     return jsonify({"success": True, "message": f"Render for Job ID: {job_id} has been stopped."})
+    # else:
+    #     return jsonify({"success": False, "message": f"Job ID: {job_id} does not exist."}), 404
     
