@@ -1,7 +1,11 @@
-from flask import Blueprint, jsonify, request
+import os
+from flask import Blueprint, json, jsonify, request
 from backend.shared.state import discovery
 
 api = Blueprint("election_api", __name__)
+
+JOBS_DIR = "jobs"
+os.makedirs(JOBS_DIR, exist_ok=True)
 
 @api.post("/start")
 def start():
@@ -49,3 +53,49 @@ def start_election():
 @api.get("/election/status")
 def get_election_status():
     return jsonify(discovery.get_election_status())
+
+@api.post("/election/notify_node_disconnection")
+def notify_node_disconnection():
+    data = request.get_json()
+    ip = data.get("ip")
+
+    if not ip:
+        return jsonify({"success": False, "message": "IP address not provided."}), 400
+
+    affected_jobs = []
+
+    # 1. Scan all job folders
+    for job_id in os.listdir(JOBS_DIR):
+        job_path = os.path.join(JOBS_DIR, job_id)
+        metadata_path = os.path.join(job_path, "metadata.json")
+
+        if not os.path.isdir(job_path) or not os.path.exists(metadata_path):
+            continue
+
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+
+            # 2. Check if job is in progress and owned by this node
+            if metadata.get("status") == "in_progress":
+                initiator_client_ip = metadata.get("metadata", {}).get("initiator_client_ip")
+
+                if initiator_client_ip == ip:
+                    metadata["status"] = "canceled"
+
+                    with open(metadata_path, "w", encoding="utf-8") as f:
+                        json.dump(metadata, f, indent=2)
+
+                    affected_jobs.append(job_id)
+
+        except Exception as e:
+            print(f"[WARN] Failed processing {metadata_path}: {e}")
+
+    # 3. Remove node from discovery
+    discovery.pop_key_from_discovered(ip)
+
+    return jsonify({
+        "success": True,
+        "message": f"Node {ip} disconnected.",
+        "jobs_reset": affected_jobs
+    })

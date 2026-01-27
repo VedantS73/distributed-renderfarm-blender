@@ -18,6 +18,7 @@ const DevicesSystemSidebar = ({ collapsed }) => {
   const [leaderElected, setLeaderElected] = useState(false);
   const [showLeaderDownModal, setShowLeaderDownModal] = useState(false);
   const [leaderDevice, setLeaderDevice] = useState(null);
+  const [previousDeviceStatus, setPreviousDeviceStatus] = useState({});
 
   const {
     token: { colorText, colorBorder },
@@ -64,6 +65,46 @@ const DevicesSystemSidebar = ({ collapsed }) => {
     }
   }, [devices]);
 
+  // Track device status and detect when non-leader devices go offline
+  useEffect(() => {
+    const currentStatus = {};
+    
+    devices.forEach((device) => {
+      const deviceKey = `${device.name}-${device.ip}`;
+      const isSelf = device.name === localInfo.pcName && device.ip === localInfo.ip;
+      const online = isOnline(device);
+      const isLeader = device.my_role === "Leader";
+      
+      currentStatus[deviceKey] = online;
+      
+      // Check if device just went offline (was online before, now offline)
+      if (
+        !isSelf && 
+        !isLeader && 
+        previousDeviceStatus[deviceKey] === true && 
+        online === false
+      ) {
+        // Device just went offline, call the API
+        handleNodeDisconnected(device.ip, device.name);
+      }
+    });
+    
+    setPreviousDeviceStatus(currentStatus);
+  }, [devices, localInfo]);
+
+  const handleNodeDisconnected = async (ip, name) => {
+    try {
+      const response = await axios.post(`${API_BASE}/node_disconnected`, {
+        ip: ip
+      });
+      
+      if (response.data.success) {
+        console.log(`Device ${name} (${ip}) removed from network`);
+      }
+    } catch (err) {
+      console.error(`Failed to notify disconnection of device ${name} (${ip})`, err);
+    }
+  };
 
   const reElectLeader = async () => {
     try {

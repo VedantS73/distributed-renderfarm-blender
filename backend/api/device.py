@@ -1,6 +1,7 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 import psutil, shutil
 from backend.shared.state import discovery
+import requests
 
 api = Blueprint("device_api", __name__)
 
@@ -32,3 +33,17 @@ def my_device():
             "disk_sufficient": disk.free >= 20 * (1024 ** 3)
         }
     })
+
+@api.post("/node_disconnected")
+def node_disconnected():
+    data = request.get_json()
+    ip = data.get("ip")
+    if ip:
+        discovery.pop_key_from_discovered(ip)
+        
+        curr_leader_ip = discovery.current_leader
+        if curr_leader_ip:
+            requests.post(f"http://{curr_leader_ip}:5000/api/election/notify_node_disconnection", json={"ip": ip})
+        return jsonify({"success": True, "message": f"Device with IP {ip} removed."})
+    else:
+        return jsonify({"success": False, "message": "IP address not provided."}), 400
