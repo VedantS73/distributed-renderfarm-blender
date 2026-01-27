@@ -74,6 +74,8 @@ def stop_render():
 
     print(f"Stopping render for Job ID: {job_id} from IP: {ip}")
 
+    return jsonify({"success": True, "message": f"Render for Job ID: {job_id} has been stopped."})
+
     # # Here you would add logic to actually stop the rendering process.
     # # This is a placeholder implementation.
     # job_path = os.path.join(JOBS_DIR, job_id)
