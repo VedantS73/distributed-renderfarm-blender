@@ -201,6 +201,7 @@ class NetworkDiscoveryService:
             try:
                 data, addr = self.socket.recvfrom(4096)
                 msg = data.decode()
+                print("incoming packet:", msg)
                 
                 if msg.startswith("DISCOVER:"):
                     parts = msg.split(":")
