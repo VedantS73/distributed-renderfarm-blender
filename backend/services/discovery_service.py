@@ -241,8 +241,10 @@ class NetworkDiscoveryService:
                     parts = msg.split(":")
                     if len(parts) >= 2:
                         stale_ip = parts[1]
-                        self.pop_key_from_discovered(stale_ip)
-                        print(f"[{self.local_ip}] Removed stale leader: {stale_ip}")
+                        if stale_ip in self.discovered_devices:
+                            del self.discovered_devices[stale_ip]
+                            print(f"[{self.local_ip}] Removed stale leader: {stale_ip}")
+                            print("Current discovered devices:", self.get_devices())
             except:
                 continue
 
