@@ -105,6 +105,7 @@ class FolderHandler(FileSystemEventHandler):
 # ==========================================
 
 def render_in_progress_jobs():
+    global on_deleted_job
     while True:
         try:
             for job_folder in os.listdir(WATCH_DIR):
