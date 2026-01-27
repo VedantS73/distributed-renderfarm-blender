@@ -48,16 +48,17 @@ const DevicesSystemSidebar = ({ collapsed }) => {
 
   useEffect(() => {
     if (!leaderElected) return;
-
+    console.log("Checking leader device status...");
     const leader = devices.find((d) => d.my_role === "Leader");
     if (!leader) return;
+    console.log("Leader device found:", leader);
 
     const online = isOnline(leader);
 
     if (!online) {
       setLeaderDevice(leader);
       setShowLeaderDownModal(true);
-
+      console.log("Leader device is offline:", leader);
       const notifyLeaderDown = async () => {
         try {
           const response = await axios.post(
