@@ -228,12 +228,38 @@ class MetadataJsonHandler(FileSystemEventHandler):
                     if not data.get("leader_ip"):
                         print(f"No leader IP found for job {job_folder}")
 
-                    leader_ip = data.get("leader_ip")
-                    leader_url = f"http://{leader_ip}:5050/api/jobs/send-video-to-client"
+                    client_ip = data.get("metadata").get("initiator_client_ip")
+                    client_url = f"http://{client_ip}:5050/api/jobs/send-video-to-client"
 
-                    response = requests.post(leader_url, json={"uuid": job_folder, "status": new_status, "client_ip": data.get("metadata").get("initiator_client_ip")}, timeout=5)
-                    response.raise_for_status()
-                    print(f"[+] Notified leader {leader_ip} of status change for job {job_folder}")
+                    video_path = os.path.join("jobs", job_folder, "renders", "output_video.mp4")
+
+                    with open(video_path, "rb") as video_file:
+                        response = requests.post(
+                            client_url,
+                            data={
+                                "uuid": job_folder,
+                                "status": new_status,
+                                "client_ip": client_ip
+                            },
+                            files={
+                                "video": ("output_video.mp4", video_file, "video/mp4")
+                            },
+                            timeout=30
+                        )
+
+                        if response.status_code == 200:
+                            print(f"[✅] Sent final video to client {client_ip} for job {job_folder}")
+                        else:
+                            print(f"[!] Failed to send final video to client {client_ip} for job {job_folder}: {response.text}")
+                    
+
+                    # response = requests.post(
+                    #     client_url, 
+                    #     data={"uuid": job_folder, "status": new_status, "client_ip": data.get("metadata").get("initiator_client_ip")}, 
+                    #     files={"video": open(os.path.join("jobs", job_folder, "renders", "output_video.mp4"), "rb")},
+                    #     timeout=5)
+                    # response.raise_for_status()
+                    print(f"[+] Notified leader {client_ip} of status change for job {job_folder}")
                 
         except Exception as e:
             print(f"[!] Error reading {json_path}: {e}")
