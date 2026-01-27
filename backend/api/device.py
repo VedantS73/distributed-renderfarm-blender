@@ -57,7 +57,7 @@ def node_disconnected():
     else:
         return jsonify({"success": False, "message": "IP address not provided."}), 400
 
-@api.get("/leader_is_down_flag")
+@api.post("/leader_is_down_flag")
 def leader_is_down_flag():
     crashed_leader_ip = False
     for job_id in os.listdir(JOBS_DIR):

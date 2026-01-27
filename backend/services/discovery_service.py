@@ -257,7 +257,6 @@ class NetworkDiscoveryService:
                 elif msg.startswith("CLIENT_DISCONNECTED"):
                     print("Client Disconnected, Cancelling Render Operations on all Workers.")
                     if self.my_role != "Leader":
-                        self.blend_operation_cancelled = True
                         for directory in os.listdir(JOBS_DIR):
                             job_path = os.path.join(JOBS_DIR, directory)
                             try:
