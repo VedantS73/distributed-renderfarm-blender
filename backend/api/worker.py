@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, json, request, jsonify
 import tempfile, uuid, os, requests, datetime
 from werkzeug.utils import secure_filename
 from backend.shared.state import blender, discovery
@@ -73,16 +73,23 @@ def stop_render():
         return jsonify({"success": False, "message": "IP address or Job ID not provided."}), 400
 
     print(f"Stopping render for Job ID: {job_id} from IP: {ip}")
+    
+    job_path = os.path.join(JOBS_DIR, job_id)
+    metadata_path = os.path.join(job_path, "metadata.json")
+    if not os.path.isdir(job_path) or not os.path.exists(metadata_path):
+        pass
+    else:
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            
+            if metadata.get("status") == "in_progress":
+                metadata["status"] = "canceled"
+                with open(metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(metadata, f, indent=2)
+
+                print(f"Render for Job ID: {job_id} has been stopped and marked as canceled.")
+        except Exception as e:
+            print(f"[WARN] Failed processing {metadata_path} for stopping render: {e}")
 
     return jsonify({"success": True, "message": f"Render for Job ID: {job_id} has been stopped."})
-
-    # # Here you would add logic to actually stop the rendering process.
-    # # This is a placeholder implementation.
-    # job_path = os.path.join(JOBS_DIR, job_id)
-    # if os.path.exists(job_path):
-    #     # Logic to stop rendering would go here
-    #     print(f"Render for Job ID: {job_id} has been stopped.")
-    #     return jsonify({"success": True, "message": f"Render for Job ID: {job_id} has been stopped."})
-    # else:
-    #     return jsonify({"success": False, "message": f"Job ID: {job_id} does not exist."}), 404
-    
