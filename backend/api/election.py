@@ -96,6 +96,7 @@ def notify_node_disconnection():
                     
                     # discovery.send_client_disconnection()
                     devices = discovery.discovered_devices
+                    devices.pop(ip, None)
                     print("*"*50)
                     print(devices)
                     print("*"*50)
