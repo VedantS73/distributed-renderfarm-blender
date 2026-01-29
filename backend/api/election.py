@@ -64,6 +64,7 @@ def notify_node_disconnection():
     ip = data.get("ip")
 
     if not discovery.discovered_devices.get(ip):
+        print(f"No device found with IP: {ip} or Device already removed")
         return jsonify({"success": False, "message": f"No device found with IP: {ip} or Device already removed"}), 404
     
     my_role = discovery.discovered_devices.get(ip).get('my_role')
@@ -113,6 +114,7 @@ def notify_node_disconnection():
                         requests.post(f"http://{device_ip}:5050/api/worker/stop-render", json={"ip": ip, "job_id": job_id})
                 # WORKER CASE
                 else:
+                    print(f"Reassigning frames for job {job_id} due to worker node disconnection.")
                     frames_to_reassign = []
                     if metadata['jobs'][ip]:
                         print(f"Reassigning frames from disconnected node {ip} for job {job_id}.")
