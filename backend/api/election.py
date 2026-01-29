@@ -61,6 +61,18 @@ def notify_node_disconnection():
     data = request.get_json()
     ip = data.get("ip")
 
+    nodes = discovery.discovered_devices
+
+    fetched_node = nodes.get(ip)
+    print('#####'*5)
+
+    print(nodes)
+    print('#####'*5)
+    print(f"Role of disconnected node {fetched_node.get('my_role')}")
+    print('#####'*5)
+
+
+
     if not ip:
         return jsonify({"success": False, "message": "IP address not provided."}), 400
 
