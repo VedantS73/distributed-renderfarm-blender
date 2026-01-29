@@ -60,18 +60,9 @@ def notify_node_disconnection():
     print("/election/notify_node_disconnection called ======= STEP 2 TO CLIENT DISCONNECTION  =======")
     data = request.get_json()
     ip = data.get("ip")
-
-    nodes = discovery.discovered_devices
-
-    fetched_node = nodes.get(ip)
-    print('#####'*5)
-
-    print(nodes)
-    print('#####'*5)
-    print(f"Role of disconnected node {fetched_node.get('my_role')}")
-    print('#####'*5)
-
-
+    
+    my_role = discovery.discovered_devices.get(ip).get('my_role')
+    print(f"Disconnected node role is: {my_role}")
 
     if not ip:
         return jsonify({"success": False, "message": "IP address not provided."}), 400
@@ -97,7 +88,8 @@ def notify_node_disconnection():
             # 2. Check if job is in progress and owned by this node
             if metadata.get("status") == "in_progress":
                 initiator_client_ip = metadata.get("metadata", {}).get("initiator_client_ip")
-
+                
+                # CLIENT CASE
                 if initiator_client_ip == ip:
                     print(f"Resetting job {job_id} due to node disconnection.")
                     metadata["status"] = "canceled"
@@ -114,6 +106,17 @@ def notify_node_disconnection():
                     print("*"*50)
                     for device_ip, device_info in devices.items():
                         requests.post(f"http://{device_ip}:5050/api/worker/stop-render", json={"ip": ip, "job_id": job_id})
+                # WORKER CASE
+                else:
+                    frames_to_reassign = []
+                    if metadata['jobs'][ip]:
+                        print(f"Reassigning frames from disconnected node {ip} for job {job_id}.")
+                        frames_to_reassign = metadata['jobs'][ip]
+                    else:
+                        print(f"No frames to reassign from disconnected node {ip} for job {job_id}.")
+                    
+                    print(f"Frames to reassign: {frames_to_reassign}")
+                    
                             
         except Exception as e:
             print(f"[WARN] Failed processing {metadata_path}: {e}")
