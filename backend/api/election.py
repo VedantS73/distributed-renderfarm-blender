@@ -116,6 +116,11 @@ def notify_node_disconnection():
                 else:
                     print(f"Reassigning frames for job {job_id} due to worker node disconnection.")
                     frames_to_reassign = []
+                    devices = discovery.discovered_devices
+                    devices.pop(ip, None)
+                    print("*"*50)
+                    print(devices)
+                    print("*"*50)
                     if metadata['jobs'][ip]:
                         print(f"Reassigning frames from disconnected node {ip} for job {job_id}.")
                         frames_to_reassign = metadata['jobs'][ip]
