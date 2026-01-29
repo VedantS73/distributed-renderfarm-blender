@@ -137,12 +137,7 @@ def render_in_progress_jobs():
                 # --- FRAME-BY-FRAME RENDER & UPLOAD ---
                 for frame_no in frames:
                     
-                    with open(json_path, 'r') as file:
-                        data = json.load(file)
                     
-                    if data['status'] != 'in_progress':
-                        print(f"[!] Job {job_folder} status changed to {data['status']}. Stopping render.")
-                        break
                     
                     output_template = os.path.join(job_output_path, "#")
                     blender_cmd = [
@@ -158,6 +153,13 @@ def render_in_progress_jobs():
                     # File Blender created
                     output_file = os.path.join(job_output_path, f"{frame_no}.png")
 
+                    with open(json_path, 'r') as file:
+                        data = json.load(file)
+                    
+                    if data['status'] != 'in_progress':
+                        print(f"[!] Job {job_folder} status changed to {data['status']}. Stopping render.")
+                        break
+                    
                     # Send frame immediately
                     with open(output_file, "rb") as f:
                         response = requests.post(
