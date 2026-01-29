@@ -1,27 +1,30 @@
 #!/bin/bash
+
+# Go to script directory
 cd "$(dirname "$0")"
 
 set -e
-
-cleanup() {
-  echo "Stopping background processes..."
-  kill $BACKEND_PID $WORKER_PID 2>/dev/null || true
-}
-trap cleanup EXIT INT TERM
 
 echo "Clearing jobs and render_output..."
 rm -rf jobs render_output
 mkdir -p jobs render_output
 
-echo "Starting backend server..."
-python3 run.py &
-BACKEND_PID=$!
+PROJECT_DIR="$(pwd)"
+
+echo "Starting backend server in new Terminal (venv activated)..."
+osascript <<EOF
+tell application "Terminal"
+    do script "cd \"$PROJECT_DIR\" && source venv/bin/activate && python3 run.py"
+end tell
+EOF
 
 sleep 3
 
-echo "Starting worker node..."
-python3 worker.py &
-WORKER_PID=$!
+echo "Starting worker node in new Terminal (venv activated)..."
+osascript <<EOF
+tell application "Terminal"
+    do script "cd \"$PROJECT_DIR\" && source venv/bin/activate && python3 worker.py"
+end tell
+EOF
 
 echo "All processes started."
-wait
