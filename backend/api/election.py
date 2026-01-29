@@ -3,6 +3,7 @@ import shutil
 import requests
 from flask import Blueprint, json, jsonify, request
 from backend.shared.state import discovery
+import datetime
 
 api = Blueprint("election_api", __name__)
 
@@ -151,10 +152,21 @@ def notify_node_disconnection():
                         
                         metadata['jobs'].pop(ip, None)
                         metadata["status"] = "in_progress"
+                        metadata["total_no_frames"] = sum(len(frames) for frames in metadata['jobs'].values())
+                        metadata["remaining_frames"] = sum(len(frames) for frames in metadata['jobs'].values())
+                        metadata["no_of_nodes"] = len(metadata['jobs'])
+                        metadata["job_id"] = new_job_id
+                        metadata["created_at"] = datetime.datetime.now().isoformat()
                         with open(new_metadata_path, "w", encoding="utf-8") as f:
                             json.dump(metadata, f, indent=2)
+                        
+                        for job_worker_ip, _ in metadata['jobs'].items():
+                            print(f"Notifying worker {job_worker_ip} about reassigned frames for job {new_job_id}.")
+                            requests.post(f"http://localhost:5050/api/jobs/broadcast-to-workers", json={
+                                "uuid": new_job_id,
+                            })
 
-                        affected_jobs.append(job_id)
+                        affected_jobs.append(new_job_id)
                     else:
                         print(f"No other workers available to reassign frames for job {job_id}.")
 
