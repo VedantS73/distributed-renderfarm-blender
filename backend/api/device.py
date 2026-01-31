@@ -118,7 +118,7 @@ def leader_is_down_flag():
                             files = {
                                 "file": (filename, f, "application/octet-stream")
                             }
-                            response = requests.post(new_job_url, files = files, metadata = analysis_result, timeout = 10)
+                            response = requests.post(new_job_url, files = files, data = analysis_result, timeout = 10)
 
                         if response.status_code != 201:
                             return jsonify({
