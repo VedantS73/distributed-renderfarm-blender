@@ -114,9 +114,9 @@ const DevicesSystemSidebar = ({ collapsed }) => {
 
   const handleNodeDisconnected = async (ip, name) => {
     try {
-      const response = await axios.post(`${API_BASE}/node_disconnected`, {
-        ip: ip,
-      });
+      // const response = await axios.post(`${API_BASE}/node_disconnected`, {
+      //   ip: ip,
+      // });
 
       if (response.data.success) {
         console.log(`Device ${name} (${ip}) removed from network`);

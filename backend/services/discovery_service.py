@@ -6,6 +6,8 @@ import netifaces
 import psutil
 import os
 from pathlib import Path
+
+import requests
 from .sequencer_tcp import SequencerServer, SequencedClient
 JOBS_DIR = "jobs"
 os.makedirs(JOBS_DIR, exist_ok=True)
@@ -303,6 +305,8 @@ class NetworkDiscoveryService:
                     if stale_ip == self.current_leader:
                         leader_went_down = True
                         down_leader_ip = stale_ip
+                    else:
+                        requests.post(f"http://{self.current_leader}:5050/api/election/notify_node_disconnection", json={"ip": stale_ip})
 
                 # Recalculate topology ONCE
                 if stale_devices:
