@@ -75,6 +75,7 @@ def leader_is_down_flag():
                 metadata = json.load(f)
             
             print("Metadata loaded")
+            print("Client ip ", discovery.local_ip)
             # 2. Check if job is in progress and you are the client of this node
             if (metadata.get("status") != "completed_video") or (metadata.get("status") != "canceled") :
                 client_ip = metadata.get("initiator_client_ip")
@@ -86,10 +87,11 @@ def leader_is_down_flag():
                     print("Current discovered devices:", discovery.get_devices())
                     discovery.initiate_election()
 
-                metadata["status"] = "canceled"
-                crashed_leader_ip = True
-                with open(metadata_path, "w", encoding="utf-8") as f:
-                    json.dump(metadata, f, indent=2)
+                    # Cancelling job
+                    metadata["status"] = "canceled"
+                    crashed_leader_ip = True
+                    with open(metadata_path, "w", encoding="utf-8") as f:
+                        json.dump(metadata, f, indent=2)
                 
         except Exception as e:
             print(f"[WARN] Failed processing {metadata_path}: {e}")
