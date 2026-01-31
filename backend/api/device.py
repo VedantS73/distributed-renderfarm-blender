@@ -61,8 +61,9 @@ def node_disconnected():
 @api.post("/leader_is_down_flag")
 def leader_is_down_flag():
     crashed_leader_ip = False
-
-    metadata = requests.form.to_dict()
+    
+    print("Entered leader_is_down_flag")
+    metadata = request.form.to_dict()
 
     print("Job id metadata " , metadata)
     job_id = metadata.get('job_id')
