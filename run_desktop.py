@@ -19,12 +19,12 @@ if __name__ == "__main__":
 
    # Open native window
    webview.create_window(
-       "My App",
+       "Distributed Renderer Client",
        "http://127.0.0.1:5050",
-       width=900,
+       width=1200,
        height=800,
-       resizable=False,
+       resizable=True,
        frameless=False,
    )
 
-   webview.start()
+   webview.start(icon="client/public/logo.png")
