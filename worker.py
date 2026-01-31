@@ -336,7 +336,7 @@ def main():
     folder_handler = FolderHandler()
     metadata_handler = MetadataJsonHandler()
 
-    observer.schedule(folder_handler, WATCH_DIR, recursive=False)
+    observer.schedule(folder_handler, WATCH_DIR, recursive=True)
     observer.schedule(metadata_handler, WATCH_DIR, recursive=True)
     
     observer.start()
