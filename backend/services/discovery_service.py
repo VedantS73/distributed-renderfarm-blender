@@ -177,7 +177,7 @@ class NetworkDiscoveryService:
                     except:
                         pass
                 
-                print(f"SENDER => detected {self.pc_name} : {self.local_ip}")
+                # print(f"SENDER => detected {self.pc_name} : {self.local_ip}")
                 time.sleep(3)
             except:
                 time.sleep(3)
@@ -196,7 +196,7 @@ class NetworkDiscoveryService:
                         ip = parts[2]
                         score = int(parts[3])
                         role = parts[4] if len(parts) >= 5 else "Undefined"
-                        print(f"LISTENER => detected {name} : {ip}")
+                        # print(f"LISTENER => detected {name} : {ip}")
                         self.add_device(name, ip, score, role=role)
                 
                 elif msg.startswith("ELECTION_INIT:"):
