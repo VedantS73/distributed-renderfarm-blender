@@ -640,6 +640,7 @@ class NetworkDiscoveryService:
         mid_uid = (mid_score, mid_ip)
         my_uid = (self.current_score, self.local_ip)
         
+        print("Ring Topology " , self.ring_topology)
         print("LCR Received UUID ", mid_uid, ". My UUID ", my_uid)
         if is_leader:
             self.current_leader = mid_ip
