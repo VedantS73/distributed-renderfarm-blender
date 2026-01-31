@@ -7,8 +7,10 @@ import psutil
 import shutil
 import os
 import json
+from pathlib import Path
 from datetime import datetime
 from .blender_service import BlenderService
+from .sequencer_tcp import SequencerServer, SequencedClient
 JOBS_DIR = "jobs"
 os.makedirs(JOBS_DIR, exist_ok=True)
 
@@ -23,6 +25,7 @@ class NetworkDiscoveryService:
         self.local_ip = self.get_local_ip()
         self.broadcast_thread = None
         self.listen_thread = None
+
         
         # File transfer server
         self.file_server_thread = None
@@ -45,6 +48,19 @@ class NetworkDiscoveryService:
         self.participant = False
         self.my_role = "Undefined"
         
+        
+        # Sequencer-based control channel (reliable ordered control messages)
+        self.control_port = 8890
+        self._sequencer_server = None
+        self._sequenced_client = None
+        self._control_manager_thread = None
+        self._control_manager_running = False
+        self._last_known_leader_for_control = None
+
+        # Ordered commit tracking (JOB_COMMIT arrives via Sequencer before/after files)
+        self._pending_job_commits = set()
+        self._pending_job_lock = threading.Lock()
+
         # Upload tracking
         self.current_blend_file = {
             "file_name": None,
@@ -118,6 +134,8 @@ class NetworkDiscoveryService:
             
             self.socket.bind(('', self.broadcast_port))
             self.running = True
+            self._start_control_manager()
+
             
             # Add self to discovery list
             self.current_score = self.get_resource_score()
@@ -139,7 +157,13 @@ class NetworkDiscoveryService:
     def stop(self):
         """Stops all services and clears all internal state data."""
         self.running = False
-        
+
+        # Stop sequencer control channel (TCP ordering) cleanly
+        try:
+            self._stop_control_manager()
+        except:
+            pass
+
         # 1. Close Network Sockets
         if self.socket:
             try:
@@ -228,6 +252,7 @@ class NetworkDiscoveryService:
                         self.participant = False
                         self.election_active = True
                         self.current_leader = None
+                        self._control_manager_kick()
                         
                         # if initiator_ip != self.local_ip:
                         #     self.run_election_simulation()
@@ -255,15 +280,20 @@ class NetworkDiscoveryService:
                             print("Updated ring topology:", self.ring_topology)
                 
                 elif msg.startswith("CLIENT_DISCONNECTED"):
-                    print("Client Disconnected, Cancelling Render Operations on all Workers.")
-                    if self.my_role != "Leader":
-                        for directory in os.listdir(JOBS_DIR):
-                            job_path = os.path.join(JOBS_DIR, directory)
-                            try:
-                                shutil.rmtree(job_path)
-                                print(f"[{self.local_ip}] Cleared job directory: {job_path}")
-                            except:
-                                continue
+                    print("Client Disconnected received.")
+                    # IMPORTANT:
+                    # Do NOT mutate job/render state here (UDP has no ordering guarantees).
+                    # Leader should send an ordered control message (e.g., CANCEL_ALL / STOP_RENDER)
+                    # over the sequencer TCP channel which workers will apply in sequence.
+                    continue
+                    #if self.my_role != "Leader":
+                    #   for directory in os.listdir(JOBS_DIR):
+                    #       job_path = os.path.join(JOBS_DIR, directory)
+                    #       try:
+                    #           shutil.rmtree(job_path)
+                    #           print(f"[{self.local_ip}] Cleared job directory: {job_path}")
+                    #       except:
+                    #           continue
                     
             except:
                 continue
@@ -574,10 +604,198 @@ class NetworkDiscoveryService:
             })
         return all_nodes
 
+    
+
+    def finalize_job_if_committed(self, job_id):
+        """Called after /worker/submit-job to apply any already-received ordered JOB_COMMIT."""
+        try:
+            self._finalize_job_commit(job_id)
+        except Exception:
+            pass
+
+    def _finalize_job_commit(self, job_id):
+        """If JOB_COMMIT was received for job_id and files are present, mark it committed locally."""
+        with self._pending_job_lock:
+            if job_id not in self._pending_job_commits:
+                return
+
+        # Only finalize if metadata exists locally
+        meta_path = Path(JOBS_DIR) / job_id / "metadata.json"
+        if not meta_path.exists():
+            return
+
+        try:
+            from backend.api.worker import commit_job_local
+            commit_job_local(job_id=job_id, assigned_worker_ip=self.local_ip)
+        except Exception:
+            return
+
+        with self._pending_job_lock:
+            self._pending_job_commits.discard(job_id)
+
+    def _control_manager_kick(self):
+        # Force manager to react on next tick
+        self._last_known_leader_for_control = None
+
+    # ==========================================
+    # SEQUENCER-BASED CONTROL CHANNEL
+    # ==========================================
+
+    def _start_control_manager(self):
+        if self._control_manager_running:
+            return
+        self._control_manager_running = True
+        self._control_manager_thread = threading.Thread(target=self._control_manager_loop, daemon=True)
+        self._control_manager_thread.start()
+
+    def _stop_control_manager(self):
+        self._control_manager_running = False
+
+        try:
+            if self._sequenced_client:
+                self._sequenced_client.stop()
+        except Exception:
+            pass
+        self._sequenced_client = None
+
+        try:
+            if self._sequencer_server:
+                self._sequencer_server.stop()
+        except Exception:
+            pass
+        self._sequencer_server = None
+
+        try:
+            if self._control_manager_thread and self._control_manager_thread.is_alive():
+                self._control_manager_thread.join(timeout=2)
+        except Exception:
+            pass
+        self._control_manager_thread = None
+
+        self._last_known_leader_for_control = None
+
+    def _control_manager_loop(self):
+        while self._control_manager_running:
+            try:
+                leader_ip = self.current_leader
+                if leader_ip != self._last_known_leader_for_control:
+                    self._last_known_leader_for_control = leader_ip
+
+                    # If I'm the leader -> run server, otherwise connect as client
+                    if leader_ip and leader_ip == self.local_ip:
+                        self._become_leader_control()
+                    else:
+                        self._become_worker_control(leader_ip)
+            except Exception:
+                pass
+            time.sleep(1.0)
+
+    def _become_leader_control(self):
+        # Stop client if any
+        try:
+            if self._sequenced_client:
+                self._sequenced_client.stop()
+        except Exception:
+            pass
+        self._sequenced_client = None
+
+        # Start server (idempotent)
+        if self._sequencer_server is None:
+            try:
+                self._sequencer_server = SequencerServer(host=self.local_ip, port=self.control_port)
+                self._sequencer_server.start()
+                print(f"[{self.local_ip}] Sequencer TCP server started on port {self.control_port}")
+            except Exception as e:
+                print(f"[{self.local_ip}] Failed to start Sequencer TCP server: {e}")
+                self._sequencer_server = None
+
+    def _become_worker_control(self, leader_ip):
+        # Stop server if any
+        try:
+            if self._sequencer_server:
+                self._sequencer_server.stop()
+        except Exception:
+            pass
+        self._sequencer_server = None
+
+        # Start / re-start client if leader exists
+        if not leader_ip:
+            try:
+                if self._sequenced_client:
+                    self._sequenced_client.stop()
+            except Exception:
+                pass
+            self._sequenced_client = None
+            return
+
+        if self._sequenced_client is None or self._sequenced_client.leader_host != leader_ip:
+            try:
+                if self._sequenced_client:
+                    self._sequenced_client.stop()
+            except Exception:
+                pass
+            self._sequenced_client = SequencedClient(
+                leader_host=leader_ip,
+                leader_port=self.control_port,
+                on_message=self._handle_control_message
+            )
+            self._sequenced_client.start()
+            print(f"[{self.local_ip}] Connected to Sequencer leader {leader_ip}:{self.control_port}")
+
+    def broadcast_control_message(self, msg_type, payload):
+        """
+        Reliable ordered broadcast (leader only).
+        Returns (ok: bool, seq: int | None, message: str)
+        """
+        if self.current_leader != self.local_ip or self._sequencer_server is None:
+            return False, None, "Not leader or sequencer not running"
+        try:
+            seq = self._sequencer_server.broadcast_control(msg_type, payload or {})
+            return True, seq, "Sent"
+        except Exception as e:
+            return False, None, str(e)
+
+
+    def _handle_control_message(self, msg):
+        """Worker-side dispatch for ordered control messages."""
+        try:
+            msg_type = msg.get("type")
+            payload = msg.get("payload") or {}
+
+            if msg_type == "JOB_COMMIT":
+                job_id = payload.get("job_id")
+                if job_id:
+                    with self._pending_job_lock:
+                        self._pending_job_commits.add(job_id)
+                    # If files already arrived, finalize immediately
+                    self._finalize_job_commit(job_id)
+
+            elif msg_type == "STOP_RENDER":
+                job_id = payload.get("job_id")
+                worker_ip = payload.get("worker_ip") or payload.get("ip")
+                if job_id and (not worker_ip or worker_ip == self.local_ip):
+                    from backend.api.worker import stop_render_local
+                    stop_render_local(job_id=job_id, worker_ip=worker_ip)
+
+            elif msg_type == "CANCEL_JOB":
+                job_id = payload.get("job_id")
+                if job_id:
+                    from backend.api.worker import cancel_job_local
+                    cancel_job_local(job_id=job_id)
+
+            elif msg_type == "CANCEL_ALL":
+                from backend.api.worker import cancel_all_local
+                cancel_all_local()
+
+        except Exception:
+            pass
+
+
     def initiate_election(self):
         # 1. RESET STATE FORCEFULLY
         self.participant = False
         self.current_leader = None
+        self._control_manager_kick()
         self.election_active = True
         self.my_role = "Worker" # Default to worker until won
         
@@ -623,6 +841,7 @@ class NetworkDiscoveryService:
         if self.ring_successor == self.local_ip:
             print(f"[{self.local_ip}] Only node in ring. declaring self leader.")
             self.current_leader = self.local_ip
+            self._control_manager_kick()
             self.my_role = "Leader"
             self.election_active = False
             # self.broadcast_election_result(self.local_ip, self.pc_name)
@@ -660,6 +879,7 @@ class NetworkDiscoveryService:
         
         if is_leader:
             self.current_leader = mid_ip
+            self._control_manager_kick()
             self.my_role = "Leader" if mid_ip == self.local_ip else "Worker"
             self.participant = False
             print(f"[{self.local_ip}] I have recognized the leader: {mid_ip}")
@@ -684,6 +904,7 @@ class NetworkDiscoveryService:
             
         elif mid_ip == self.local_ip:
             self.current_leader = self.local_ip
+            self._control_manager_kick()
             self.my_role = "Leader"
             print(f"[{self.local_ip}] I have won the election and am the Leader.")
             self.participant = False
@@ -746,3 +967,14 @@ class NetworkDiscoveryService:
             print(f"[{self.local_ip}] Broadcasted client disconnection message.")
         except Exception as e:
             print(f"[{self.local_ip}] Error broadcasting client disconnection: {e}")
+
+        # ALSO issue an ordered cancel via sequencer (leader only), so workers apply deterministically.
+        try:
+            if self.my_role == "Leader":
+                ok, seq, info = self.broadcast_control_message("CANCEL_ALL", {})
+                if ok:
+                    print(f"[{self.local_ip}] Ordered CANCEL_ALL sent (seq={seq})")
+                else:
+                    print(f"[{self.local_ip}] Failed to send ordered CANCEL_ALL: {info}")
+        except:
+            pass
