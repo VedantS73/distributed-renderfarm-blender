@@ -135,8 +135,8 @@ def stop_render_local(job_id, worker_ip=None):
     with open(job_meta_path, "r", encoding="utf-8") as f:
         metadata = json.load(f)
 
-    if worker_ip and metadata.get("assigned_worker") not in (None, worker_ip):
-        return {"status": "ignored", "message": "Job not assigned to this worker"}
+    #if worker_ip and metadata.get("assigned_worker") not in (None, worker_ip):
+    #    return {"status": "ignored", "message": "Job not assigned to this worker"}
 
     if metadata.get("status") == "in_progress":
         metadata["status"] = "canceled"
