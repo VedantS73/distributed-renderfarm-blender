@@ -776,6 +776,7 @@ class NetworkDiscoveryService:
                 job_id = payload.get("job_id")
                 worker_ip = payload.get("worker_ip") or payload.get("ip")
                 if job_id:
+                    print("STOP_RENDER triggered. Stopping rendering",job_id)
                     from backend.api.worker import stop_render_local
                     stop_render_local(job_id=job_id, worker_ip=worker_ip)
 
