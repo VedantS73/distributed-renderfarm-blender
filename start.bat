@@ -8,7 +8,7 @@ mkdir jobs
 mkdir render_output
 
 echo Starting backend server...
-start "Renderfarm-Server" cmd /k python run_desktop.py
+start "Renderfarm-Server" cmd /k python run.py
 
 timeout /t 3 /nobreak >nul
 
