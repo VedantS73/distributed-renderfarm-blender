@@ -4,12 +4,8 @@ import time
 import platform
 import netifaces
 import psutil
-import shutil
 import os
-import json
 from pathlib import Path
-from datetime import datetime
-from .blender_service import BlenderService
 from .sequencer_tcp import SequencerServer, SequencedClient
 JOBS_DIR = "jobs"
 os.makedirs(JOBS_DIR, exist_ok=True)
@@ -25,15 +21,11 @@ class NetworkDiscoveryService:
         self.local_ip = self.get_local_ip()
         self.broadcast_thread = None
         self.listen_thread = None
-
+        self.monitor_thread = None
         
         # File transfer server
         self.file_server_thread = None
         self.file_server_socket = None
-        
-        # Render tracking
-        self.render_jobs = {}  # {job_id: {file, status, progress, assigned_to}}
-        self.my_render_tasks = []  # Tasks assigned to this node
         
         # Initial score calculation
         self.current_score = 0
@@ -48,7 +40,6 @@ class NetworkDiscoveryService:
         self.participant = False
         self.my_role = "Undefined"
         
-        
         # Sequencer-based control channel (reliable ordered control messages)
         self.control_port = 8890
         self._sequencer_server = None
@@ -60,27 +51,6 @@ class NetworkDiscoveryService:
         # Ordered commit tracking (JOB_COMMIT arrives via Sequencer before/after files)
         self._pending_job_commits = set()
         self._pending_job_lock = threading.Lock()
-
-        # Upload tracking
-        self.current_blend_file = {
-            "file_name": None,
-            "filepath": None,
-            "scene_name": None,
-            "start_frame": None,
-            "end_frame": None,
-            "samples": None,
-            "engine": None,
-            "res_x": None,
-            "res_y": None,
-            "output_format": None
-        }
-
-        self.upload_status = {
-            "uploading": False,
-            "progress": 0,
-            "filename": None,
-            "error": None
-        }
 
     def get_local_ip(self):
         try:
@@ -144,11 +114,11 @@ class NetworkDiscoveryService:
             # Start threads
             self.broadcast_thread = threading.Thread(target=self.broadcast_loop, daemon=True)
             self.listen_thread = threading.Thread(target=self.listen_loop, daemon=True)
-            self.file_server_thread = threading.Thread(target=self.file_server_loop, daemon=True)
+            self.monitor_thread = threading.Thread(target=self.check_stale_devices, daemon=True)
             
             self.broadcast_thread.start()
             self.listen_thread.start()
-            self.file_server_thread.start()
+            self.monitor_thread.start()
             
             return True, "Discovery Service Started"
         except Exception as e:
@@ -191,24 +161,6 @@ class NetworkDiscoveryService:
         self.discovered_devices = {}
         self.ring_topology = []
         
-        # 4. Clear Render and File State
-        self.render_jobs = {}
-        self.my_render_tasks = []
-        
-        # 5. Reset Upload Buffers
-        self.current_blend_file = {
-            "file_name": None, "filepath": None, "scene_name": None,
-            "start_frame": None, "end_frame": None, "samples": None,
-            "engine": None, "res_x": None, "res_y": None, "output_format": None
-        }
-
-        self.upload_status = {
-            "uploading": False,
-            "progress": 0,
-            "filename": None,
-            "error": None
-        }
-        
         print(f"[{self.local_ip}] Discovery Service stopped and state cleared.")
 
     def broadcast_loop(self):
@@ -217,7 +169,6 @@ class NetworkDiscoveryService:
             try:
                 self.current_score = self.get_resource_score()
                 msg = f"DISCOVER:{self.pc_name}:{self.local_ip}:{self.current_score}:{self.my_role}"
-                
                 for addr in self.get_broadcast_addresses():
                     self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
                 
@@ -253,9 +204,6 @@ class NetworkDiscoveryService:
                         self.election_active = True
                         self.current_leader = None
                         self._control_manager_kick()
-                        
-                        # if initiator_ip != self.local_ip:
-                        #     self.run_election_simulation()
                 
                 elif msg.startswith("LCR_TOKEN:"):
                     print("LCR token message received.")
@@ -281,278 +229,10 @@ class NetworkDiscoveryService:
                 
                 elif msg.startswith("CLIENT_DISCONNECTED"):
                     print("Client Disconnected received.")
-                    # IMPORTANT:
-                    # Do NOT mutate job/render state here (UDP has no ordering guarantees).
-                    # Leader should send an ordered control message (e.g., CANCEL_ALL / STOP_RENDER)
-                    # over the sequencer TCP channel which workers will apply in sequence.
                     continue
-                    #if self.my_role != "Leader":
-                    #   for directory in os.listdir(JOBS_DIR):
-                    #       job_path = os.path.join(JOBS_DIR, directory)
-                    #       try:
-                    #           shutil.rmtree(job_path)
-                    #           print(f"[{self.local_ip}] Cleared job directory: {job_path}")
-                    #       except:
-                    #           continue
                     
             except:
                 continue
-
-    def file_server_loop(self):
-        """TCP server for receiving file uploads"""
-        try:
-            self.file_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.file_server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.file_server_socket.bind(('', self.file_transfer_port))
-            self.file_server_socket.listen(5)
-            
-            print(f"[{self.local_ip}] File server listening on port {self.file_transfer_port}")
-            
-            while self.running:
-                try:
-                    self.file_server_socket.settimeout(1.0)
-                    conn, addr = self.file_server_socket.accept()
-                    threading.Thread(target=self.handle_file_upload, args=(conn, addr), daemon=True).start()
-                except socket.timeout:
-                    continue
-                except:
-                    break
-        except Exception as e:
-            print(f"[{self.local_ip}] File server error: {e}")
-
-    def handle_file_upload(self, conn, addr):
-        """Handles incoming file upload from a worker node"""
-        try:
-            # Receive metadata first (JSON)
-            metadata_size = int.from_bytes(conn.recv(4), 'big')
-            metadata_json = conn.recv(metadata_size).decode()
-            metadata = json.loads(metadata_json)
-            
-            filename = metadata['filename']
-            filesize = metadata['filesize']
-            job_id = metadata.get('job_id', 'unknown')
-            
-            print(f"[{self.local_ip}] Receiving file: {filename} ({filesize} bytes) from {addr[0]}")
-            
-            # Create uploads directory if it doesn't exist
-            upload_dir = "uploads"
-            os.makedirs(upload_dir, exist_ok=True)
-            
-            filepath = os.path.join(upload_dir, filename)
-
-            # clear existing file if any
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            
-            # Receive file data
-            received = 0
-            with open(filepath, 'wb') as f:
-                while received < filesize:
-                    chunk = conn.recv(min(8192, filesize - received))
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    received += len(chunk)
-            
-            # Send acknowledgment
-            response = json.dumps({"status": "success", "received": received})
-            conn.sendall(response.encode())
-            
-            print(f"[{self.local_ip}] File received successfully: {filepath}")
-            
-            # If this is the leader, create a render job
-            if self.my_role == "Leader":
-                self.create_render_job(job_id, filename, filepath, addr[0])
-            
-        except Exception as e:
-            print(f"[{self.local_ip}] Error handling file upload: {e}")
-            try:
-                error_response = json.dumps({"status": "error", "message": str(e)})
-                conn.sendall(error_response.encode())
-            except:
-                pass
-        finally:
-            conn.close()
-
-    def upload_blender_file(self, filepath):
-        """Upload a Blender file to the leader node"""
-        if not os.path.exists(filepath):
-            return {"success": False, "error": "File not found"}
-        
-        if self.my_role == "Leader":
-            # store in uploads directory
-            upload_dir = "uploads"
-            os.makedirs(upload_dir, exist_ok=True)
-            dest_path = os.path.join(upload_dir, os.path.basename(filepath))
-            with open(filepath, 'rb') as src_file:
-                with open(dest_path, 'wb') as dest_file:
-                    dest_file.write(src_file.read())
-            
-            self.current_blend_file = {
-                "filename": os.path.basename(filepath),
-                "filepath": dest_path,
-                "info": None  # You might want to extract blend info here if needed
-            }
-            print(f"[{self.local_ip}] Analyzed Blender file info: {blend_info}")
-            
-            return {"success": False, "error": "I am the leader, no need to upload"}
-        
-        if not self.current_leader:
-            return {"success": False, "error": "No leader elected yet"}
-        
-        try:
-            self.upload_status["uploading"] = True
-            self.upload_status["progress"] = 0
-            self.upload_status["filename"] = os.path.basename(filepath)
-            self.upload_status["error"] = None
-            
-            # Connect to leader's file server
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client_socket.connect((self.current_leader, self.file_transfer_port))
-            
-            # Prepare metadata
-            filename = os.path.basename(filepath)
-            filesize = os.path.getsize(filepath)
-            job_id = f"{self.local_ip}_{int(time.time())}"
-            
-            metadata = {
-                "filename": filename,
-                "filesize": filesize,
-                "job_id": job_id,
-                "sender_ip": self.local_ip,
-                "sender_name": self.pc_name
-            }
-            
-            metadata_json = json.dumps(metadata).encode()
-            
-            # Send metadata size and metadata
-            client_socket.sendall(len(metadata_json).to_bytes(4, 'big'))
-            client_socket.sendall(metadata_json)
-            
-            # Send file data
-            sent = 0
-            with open(filepath, 'rb') as f:
-                while sent < filesize:
-                    chunk = f.read(8192)
-                    if not chunk:
-                        break
-                    client_socket.sendall(chunk)
-                    sent += len(chunk)
-                    self.upload_status["progress"] = int((sent / filesize) * 100)
-            
-            # Receive acknowledgment
-            response = client_socket.recv(1024).decode()
-            result = json.loads(response)
-            
-            client_socket.close()
-            
-            self.upload_status["uploading"] = False
-            self.upload_status["progress"] = 100
-
-            service = BlenderService()
-            blend_info = service.analyze_blend_file(filepath)
-            print(f"[{self.local_ip}] Analyzed Blender file info: {blend_info}")
-
-            self.current_blend_file = blend_info
-            print(f"[{self.local_ip}] Uploaded Blender file info: {blend_info}")
-            
-            if result.get("status") == "success":
-                return {
-                    "success": True,
-                    "job_id": job_id,
-                    "bytes_sent": sent,
-                    "message": f"File uploaded successfully to leader at {self.current_leader}"
-                }
-            else:
-                self.upload_status["error"] = result.get("message", "Unknown error")
-                return {"success": False, "error": self.upload_status["error"]}
-                
-        except Exception as e:
-            self.upload_status["uploading"] = False
-            self.upload_status["error"] = str(e)
-            return {"success": False, "error": str(e)}
-
-    def create_render_job(self, job_id, filename, filepath, uploader_ip):
-        """Leader creates a render job and assigns it to workers"""
-        if self.my_role != "Leader":
-            return
-        
-        self.render_jobs[job_id] = {
-            "job_id": job_id,
-            "filename": filename,
-            "filepath": filepath,
-            "uploader": uploader_ip,
-            "status": "pending",
-            "progress": 0,
-            "assigned_to": None,
-            "created_at": datetime.now().isoformat(),
-            "started_at": None,
-            "completed_at": None
-        }
-        
-        print(f"[{self.local_ip}] Created render job: {job_id}")
-        
-        # Auto-assign to best worker (could be improved with load balancing)
-        self.assign_render_job(job_id)
-
-    def assign_render_job(self, job_id):
-        """Leader assigns a render job to the best available worker"""
-        if self.my_role != "Leader" or job_id not in self.render_jobs:
-            return
-        
-        # Find worker with highest resource score
-        workers = [d for d in self.discovered_devices.values() if d['ip'] != self.local_ip]
-        
-        if not workers:
-            print(f"[{self.local_ip}] No workers available for job {job_id}")
-            return
-        
-        best_worker = max(workers, key=lambda w: w['resource_score'])
-        
-        self.render_jobs[job_id]['assigned_to'] = best_worker['ip']
-        self.render_jobs[job_id]['status'] = 'assigned'
-        
-        print(f"[{self.local_ip}] Assigned job {job_id} to {best_worker['name']} ({best_worker['ip']})")
-        
-        # Broadcast job assignment
-        self.broadcast_render_job(job_id)
-
-    def broadcast_render_job(self, job_id):
-        """Broadcast render job status update"""
-        if job_id not in self.render_jobs:
-            return
-        
-        job = self.render_jobs[job_id]
-        msg = f"RENDER_JOB:{job_id}:{job['assigned_to']}:{job['status']}:{job['progress']}"
-        
-        try:
-            for addr in self.get_broadcast_addresses():
-                self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
-        except Exception as e:
-            print(f"[{self.local_ip}] Error broadcasting render job: {e}")
-
-    def update_render_job(self, job_id, worker_ip, status, progress):
-        """Update render job status (called when receiving updates)"""
-        if job_id in self.render_jobs:
-            self.render_jobs[job_id]['status'] = status
-            self.render_jobs[job_id]['progress'] = progress
-            
-            if status == 'rendering' and not self.render_jobs[job_id]['started_at']:
-                self.render_jobs[job_id]['started_at'] = datetime.now().isoformat()
-            elif status == 'completed':
-                self.render_jobs[job_id]['completed_at'] = datetime.now().isoformat()
-
-    def get_upload_status(self):
-        """Get current upload status"""
-        return self.upload_status.copy()
-
-    def get_render_status(self):
-        """Get render job status"""
-        return {
-            "my_role": self.my_role,
-            "jobs": list(self.render_jobs.values()) if self.my_role == "Leader" else [],
-            "my_tasks": self.my_render_tasks
-        }
 
     def add_device(self, name, ip, score, role="Undefined"):
         self.discovered_devices[ip] = {
@@ -565,6 +245,80 @@ class NetworkDiscoveryService:
 
     def get_devices(self):
         return list(self.discovered_devices.values())
+    
+    def check_stale_devices(self):
+        while self.running:
+            try:
+                current_time = int(time.time())
+                stale_devices = []
+                leader_went_down = False
+                down_leader_ip = None
+
+                for ip, device in list(self.discovered_devices.items()):
+                    if ip == self.local_ip:
+                        continue
+
+                    last_seen = device.get('last_seen', 0)
+                    if current_time - last_seen > 10:
+                        stale_devices.append(ip)
+                        print(f"[{self.local_ip}] Device {device['name']} ({ip}) is stale")
+
+                for stale_ip in stale_devices:
+                    del self.discovered_devices[stale_ip]
+                    print(f"[{self.local_ip}] Removed stale device: {stale_ip}")
+
+                    if stale_ip == self.current_leader:
+                        leader_went_down = True
+                        down_leader_ip = stale_ip
+
+                # Recalculate topology ONCE
+                if stale_devices:
+                    self.calculate_ring_topology()
+
+                # Handle leader-down logic OUTSIDE loop
+                if leader_went_down:
+                    self.my_role = "Undefined"
+                    self.handle_leader_down(down_leader_ip)
+
+            except Exception as e:
+                print(f"[{self.local_ip}] Error in stale device check: {e}")
+
+            time.sleep(2)
+    
+    def handle_leader_down(self, leader_ip):
+        print("THE LEADER IS DOWN ACCORDING TO DISCOVERY SERVICE")
+        import json
+        import requests
+        from pathlib import Path
+
+        jobs_path = Path(JOBS_DIR)
+        if not jobs_path.exists():
+            return
+
+        for job_folder in jobs_path.iterdir():
+            if not job_folder.is_dir():
+                continue
+
+            metadata_file = job_folder / "metadata.json"
+            if not metadata_file.exists():
+                continue
+
+            try:
+                with open(metadata_file) as f:
+                    metadata = json.load(f)
+
+                if metadata.get("status") == "in_progress":
+                    job_id = job_folder.name
+                    response = requests.post(
+                        f"http://{self.local_ip}:5050/api/device/leader_is_down_flag",
+                        json={"job_id": job_id, "ip": leader_ip},
+                        timeout=30
+                    )
+                    print(f"Leader down handler response: {response.status_code}")
+                    break
+
+            except Exception as e:
+                print(f"Error handling leader down for {job_folder.name}: {e}")
 
     def pop_key(self, key):
         print(f"Popping device with IP: {key}")
@@ -802,7 +556,6 @@ class NetworkDiscoveryService:
         except Exception:
             pass
 
-
     def initiate_election(self):
         # 1. RESET STATE FORCEFULLY
         self.participant = False
@@ -922,19 +675,6 @@ class NetworkDiscoveryService:
             print(f"[{self.local_ip}] I have won the election and am the Leader.")
             self.participant = False
             self.send_lcr_token(self.current_score, self.local_ip, is_leader=True)
-            # self.broadcast_election_result(self.local_ip, self.pc_name)
-
-    # def broadcast_election_result(self, leader_ip, leader_name):
-    #     try:
-    #         msg = f"ELECTION:{leader_ip}:{leader_name}"
-    #         for addr in self.get_broadcast_addresses():
-    #             try:
-    #                 self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
-    #                 self.election_active = False
-    #             except:
-    #                 pass
-    #     except Exception as e:
-    #         print(f"Error broadcasting election result: {e}")
 
     def get_election_status(self):
         leader_consensus = self.verify_leader_consensus()
