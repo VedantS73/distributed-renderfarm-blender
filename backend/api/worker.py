@@ -154,7 +154,7 @@ def cancel_job_local(job_id):
 
     try:
         if job_path.is_dir():
-            if os.path.exists(job_path, 'metadata.json'):
+            shutil.rmtree(job_path)
 
         else:
             job_path.unlink(missing_ok=True)
