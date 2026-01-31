@@ -163,7 +163,7 @@ def create_job():
     print("📝 Metadata:")
     for k, v in metadata.items():
         print(f"   {k}: {v}")
-
+    print("Devices to give job to ", discovery.get_devices())
     # RELIABLE ORDERING (optional marker): announce job creation in global sequence
     try:
         if discovery.my_role == "Leader":
