@@ -232,6 +232,33 @@ class NetworkDiscoveryService:
                             print("Current discovered devices:", self.get_devices())
                             self.calculate_ring_topology()
                             print("Updated ring topology:", self.ring_topology)
+
+                            jobs_path = Path(JOBS_DIR)
+                            if not jobs_path.exists():
+                                return
+
+                            for job_folder in jobs_path.iterdir():
+                                if not job_folder.is_dir():
+                                    continue
+
+                                metadata_file = job_folder / "metadata.json"
+                                if not metadata_file.exists():
+                                    continue
+                                
+                                import json
+
+                                try:
+                                    with open(metadata_file) as f:
+                                        metadata = json.load(f)
+
+                                    if metadata.get("status") == "in_progress":
+                                        metadata['status'] = 'canceled'
+
+                                        with open(metadata_file, "w", encoding="utf-8") as f:
+                                            json.dump(metadata, f, indent=2) 
+                                except Exception as e:
+                                    print(f"Error handling leader down for {job_folder.name}: {e}")
+
                 
                 elif msg.startswith("CLIENT_DISCONNECTED"):
                     print("Client Disconnected received.")

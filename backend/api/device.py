@@ -154,7 +154,7 @@ def leader_is_down_flag():
                         return jsonify({"error": str(e)}), 502
 
             # Cancelling job
-            metadata["status"] = "cancelled"
+            metadata["status"] = "canceled"
             crashed_leader_ip = True
             with open(metadata_path, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, indent=2)    
