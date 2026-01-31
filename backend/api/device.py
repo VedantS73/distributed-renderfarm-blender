@@ -62,15 +62,20 @@ def node_disconnected():
 def leader_is_down_flag():
     crashed_leader_ip = False
 
+    metadata = requests.form.to_dict()
+
+    print("Job id metadata " , metadata)
+    job_id = metadata.get('job_id')
+
     print("Leader is down! Restarting election")
     # Find ongoing jobs where you are the client
-    for job_id in os.listdir(JOBS_DIR):
+    if job_id in os.listdir(JOBS_DIR):
         print("Current Job id ", job_id)
         job_path = os.path.join(JOBS_DIR, job_id)
         metadata_path = os.path.join(job_path, "metadata.json")
 
         if not os.path.isdir(job_path) or not os.path.exists(metadata_path):
-            continue
+            return jsonify({"error": "job folder not found"}), 510
 
         try:
             with open(metadata_path, "r", encoding="utf-8") as f:
