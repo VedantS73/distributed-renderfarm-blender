@@ -138,7 +138,7 @@ def stop_render_local(job_id, worker_ip=None):
     if worker_ip and metadata.get("assigned_worker") not in (None, worker_ip):
         return {"status": "ignored", "message": "Job not assigned to this worker"}
 
-    if metadata.get("status") in ("in_progress", "ready"):
+    if metadata.get("status") == "in_progress":
         metadata["status"] = "canceled"
         with open(job_meta_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
@@ -154,7 +154,8 @@ def cancel_job_local(job_id):
 
     try:
         if job_path.is_dir():
-            shutil.rmtree(job_path)
+            if os.path.exists(job_path, 'metadata.json'):
+
         else:
             job_path.unlink(missing_ok=True)
         return {"status": "ok", "message": "Job deleted"}
