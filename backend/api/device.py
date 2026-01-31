@@ -79,7 +79,7 @@ def leader_is_down_flag():
             print("Client ip ", discovery.local_ip)
             # 2. Check if job is in progress and you are the client of this node
             if (metadata.get("status") != "completed_video") and (metadata.get("status") != "canceled") :
-                client_ip = metadata.get("initiator_client_ip")
+                client_ip = metadata.get("metadata").get("initiator_client_ip")
                 print("Metadata client ip ", client_ip,". Status ", metadata.get("status"))
                 if discovery.local_ip == client_ip:
                     # Start leader election again
