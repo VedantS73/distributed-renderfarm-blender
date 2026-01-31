@@ -120,7 +120,14 @@ def leader_is_down_flag():
                     print("New job created with same blend file")
 
                     blend_file_path = os.path.join(job_path, filename)
-                    analysis_result = blender.analyze(blend_file_path)
+                    #analysis_result = blender.analyze(blend_file_path)
+
+                    analysis_result = {
+                        "fps" : metadata.get("metadata").get("fps"),
+                        "renderer" : metadata.get("metadata").get("renderer"),
+                        "frame_start" : metadata.get("metadata").get("frame_start"),
+                        "frame_end" : metadata.get("metadata").get("frame_end")
+                    }
                     try:
                         with open(blend_file_path, "rb") as f:
                             files = {
