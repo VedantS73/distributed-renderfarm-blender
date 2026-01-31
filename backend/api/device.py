@@ -77,7 +77,6 @@ def leader_is_down_flag():
                 metadata = json.load(f)
             
             print("Metadata loaded")
-            print("Client ip ", discovery.local_ip)
             # 2. Check if job is in progress and you are the client of this node
             if (metadata.get("status") != "completed_video") and (metadata.get("status") != "canceled") :
                 client_ip = metadata.get("metadata").get("initiator_client_ip")
@@ -105,7 +104,7 @@ def leader_is_down_flag():
                     
                     print("Election Finished. Passing job to new leader ", new_leader_ip)
 
-                    new_job_url = f"http://{client_ip}:5050/api/jobs/create"
+                    new_job_url = f"http://{client_ip}:5050/api/jobs/upload"
 
                     filename = metadata.get("filename")
 
