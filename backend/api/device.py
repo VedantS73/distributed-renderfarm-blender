@@ -119,6 +119,7 @@ def leader_is_down_flag():
                             }
                             response = requests.post(new_job_url, files = files, data = analysis_result, timeout = 10)
 
+                        '''
                         if response.status_code != 201:
                             return jsonify({
                                 "error": "Leader rejected job",
@@ -129,7 +130,7 @@ def leader_is_down_flag():
                             "message": "Job successfully forwarded to leader",
                             "leader": leader_ip
                         }), 201
-                    
+                        '''
                         
                         
 
