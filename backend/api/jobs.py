@@ -213,7 +213,7 @@ def broadcast_job_to_workers():
         old_jobs = metadata.get("jobs", {})
 
         # Map old numeric keys to IPs from discovery.ring_topology
-        new_jobs = {}
+        new_jobs = old_jobs
         worker_ips = [w['ip'] for w in discovery.ring_topology]
 
         print("==================================================================")
@@ -226,6 +226,7 @@ def broadcast_job_to_workers():
             old_key = str(idx + 1)  # old keys are "1", "2", ...
             if old_key in old_jobs:
                 new_jobs[ip] = old_jobs[old_key]
+                new_jobs.pop(old_key, None)
             idx+=1
 
         metadata["jobs"] = new_jobs

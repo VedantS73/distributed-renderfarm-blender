@@ -213,6 +213,41 @@ class MetadataJsonHandler(FileSystemEventHandler):
         json_path = event.src_path
         job_folder = os.path.basename(os.path.dirname(json_path))
 
+        if job_folder.endswith("_reassign"):
+            print(f"[+] Detected reassigned job folder: {job_folder}")
+            old_job_folder = job_folder.rsplit("_reassign", 1)[0]
+            print(f"[+] Old job folder: {old_job_folder}")
+
+            new_metadata_path = os.path.join(WATCH_DIR, job_folder, JSON_FILENAME)
+            print(f"[+] New metadata path: {new_metadata_path}")
+            if os.path.exists(new_metadata_path):
+                with open(new_metadata_path, "r", encoding="utf-8") as f:
+                    print("[+] Reading new metadata file")
+                    new_data = json.load(f)
+            
+                print(f"[+] New job data loaded: {new_data}")
+                if new_data.get("status") == "completed_frames":
+                    old_renders_path = os.path.join(WATCH_DIR, old_job_folder, "renders")
+                    new_renders_path = os.path.join(WATCH_DIR, job_folder, "renders")
+                    if os.path.exists(old_renders_path):
+                        shutil.copytree(old_renders_path, new_renders_path, dirs_exist_ok=True)
+                        print(f"[+] Copied renders from {old_renders_path} to {new_renders_path} for reassigned job {job_folder}")
+                    
+                    self.on_job_completed(job_folder, new_data)
+                    new_data["status"] = "completed_video"
+                    with open(new_metadata_path, "w", encoding="utf-8") as f:
+                        json.dump(new_data, f, indent=4)
+
+                    old_metadata_path = os.path.join(WATCH_DIR, old_job_folder, JSON_FILENAME)
+                    try:
+                        with open(old_metadata_path, "r", encoding="utf-8") as f:
+                            old_data = json.load(f)
+                        old_data["status"] = "canceled"
+                        with open(old_metadata_path, "w", encoding="utf-8") as f:
+                            json.dump(old_data, f, indent=4)
+                        print(f"[+] Updated status to 'canceled' in old job metadata for {old_job_folder}")
+                    except Exception as e:
+                        print(f"[!] Error updating old job metadata for {old_job_folder}: {e}")
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -263,13 +298,6 @@ class MetadataJsonHandler(FileSystemEventHandler):
                         else:
                             print(f"[!] Failed to send final video to client {client_ip} for job {job_folder}: {response.text}")
                     
-
-                    # response = requests.post(
-                    #     client_url, 
-                    #     data={"uuid": job_folder, "status": new_status, "client_ip": data.get("metadata").get("initiator_client_ip")}, 
-                    #     files={"video": open(os.path.join("jobs", job_folder, "renders", "output_video.mp4"), "rb")},
-                    #     timeout=5)
-                    # response.raise_for_status()
                     print(f"[+] Notified leader {client_ip} of status change for job {job_folder}")
                 
         except Exception as e:

@@ -45,7 +45,7 @@ def node_disconnected():
     print("2. processing disconnection for IP -> ", ip)
     if ip:
         print(ip)
-        discovery.pop_key(ip)
+        # discovery.pop_key(ip)
         
         curr_leader_ip = discovery.current_leader
         print("Notifying current leader about disconnection... LEADR IP: " + str(curr_leader_ip))
