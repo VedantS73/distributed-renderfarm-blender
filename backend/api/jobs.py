@@ -164,6 +164,13 @@ def create_job():
     for k, v in metadata.items():
         print(f"   {k}: {v}")
 
+    # RELIABLE ORDERING (optional marker): announce job creation in global sequence
+    try:
+        if discovery.my_role == "Leader":
+            discovery.broadcast_control_message("JOB_CREATED", {"job_id": job_id})
+    except:
+        pass
+
     return jsonify({
         "message": "Job created successfully",
         "job_id": job_id,
@@ -229,6 +236,13 @@ def broadcast_job_to_workers():
         jf.truncate()
     # --- Done updating jobs ---
 
+    # RELIABLE ORDERING: announce broadcast start in global sequence
+    try:
+        if discovery.my_role == "Leader":
+            discovery.broadcast_control_message("JOB_BROADCAST_BEGIN", {"job_id": job_id})
+    except:
+        pass
+
     results = []
     
     for worker in discovery.ring_topology:
@@ -247,11 +261,34 @@ def broadcast_job_to_workers():
                 "worker": worker,
                 "status": response.status_code,
             })
+
+            # RELIABLE ORDERING: per-worker "sent" marker in global sequence
+            try:
+                if discovery.my_role == "Leader":
+                    discovery.broadcast_control_message("JOB_SENT", {"job_id": job_id, "worker_ip": worker_ip})
+            except:
+                pass
+
         except Exception as e:
             results.append({
                 "worker": worker,
                 "error": str(e),
             })
+
+    # RELIABLE ORDERING: announce broadcast completion in global sequence
+    try:
+        if discovery.my_role == "Leader":
+            discovery.broadcast_control_message("JOB_BROADCAST_DONE", {"job_id": job_id})
+    except:
+        pass
+
+
+    # RELIABLE ORDERING: commit the job globally (workers will process this in strict sequence)
+    try:
+        if discovery.my_role == "Leader":
+            discovery.broadcast_control_message("JOB_COMMIT", {"job_id": job_id})
+    except:
+        pass
 
     return jsonify({
         "job_id": job_id,

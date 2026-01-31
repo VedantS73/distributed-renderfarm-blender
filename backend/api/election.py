@@ -100,9 +100,9 @@ def notify_node_disconnection():
                     print("*"*50)
                     print(devices)
                     print("*"*50)
-                    for device_ip, device_info in devices.items():
-                        requests.post(f"http://{device_ip}:5050/api/worker/stop-render", json={"ip": ip, "job_id": job_id})
-                            
+                    discovery.broadcast_control_message("CANCEL_ALL", {})
+
+
         except Exception as e:
             print(f"[WARN] Failed processing {metadata_path}: {e}")
 
