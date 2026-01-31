@@ -317,7 +317,7 @@ class NetworkDiscoveryService:
                     job_id = job_folder.name
                     response = requests.post(
                         f"http://{self.local_ip}:5050/api/leader_is_down_flag",
-                        json={"job_id": job_id, "ip": leader_ip},
+                        data={"job_id": job_id, "ip": leader_ip},
                         timeout=30
                     )
                     print(f"Leader down handler response: {response.status_code}")
