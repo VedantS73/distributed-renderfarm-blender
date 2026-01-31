@@ -763,6 +763,7 @@ class NetworkDiscoveryService:
             payload = msg.get("payload") or {}
 
             if msg_type == "JOB_COMMIT":
+                print("JOB_COMMIT received")
                 job_id = payload.get("job_id")
                 if job_id:
                     with self._pending_job_lock:
@@ -771,6 +772,7 @@ class NetworkDiscoveryService:
                     self._finalize_job_commit(job_id)
 
             elif msg_type == "STOP_RENDER":
+                print("STOP_RENDER received")
                 job_id = payload.get("job_id")
                 worker_ip = payload.get("worker_ip") or payload.get("ip")
                 if job_id and (not worker_ip or worker_ip == self.local_ip):
@@ -778,6 +780,7 @@ class NetworkDiscoveryService:
                     stop_render_local(job_id=job_id, worker_ip=worker_ip)
 
             elif msg_type == "CANCEL_JOB":
+                print("CANCEL_JOB received")
                 job_id = payload.get("job_id")
                 print("CANCEL_JOB triggered. Cancelling rendering")
                 if job_id:
@@ -785,8 +788,15 @@ class NetworkDiscoveryService:
                     cancel_job_local(job_id=job_id)
 
             elif msg_type == "CANCEL_ALL":
+                print("CANCEL_ALL received")
                 from backend.api.worker import cancel_all_local
                 cancel_all_local()
+
+            elif msg_type == "JOB_CREATED":
+                print("JOB_CREATED received")
+                pass
+            else:
+                print("Invalid Message received", msg_type)    
 
         except Exception:
             pass
