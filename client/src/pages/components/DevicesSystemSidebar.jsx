@@ -61,13 +61,14 @@ const DevicesSystemSidebar = ({ collapsed }) => {
       console.log("Leader device is offline:", leader);
       const notifyLeaderDown = async () => {
         try {
-          const response = await axios.post(
-            `${API_BASE}/leader_is_down_flag`
-          );
+          console.log("Notifying backend of leader down...");
+          // const response = await axios.post(
+          //   `${API_BASE}/leader_is_down_flag`
+          // );
 
-          if (response.data.leader_is_down) {
-            setFatalCrashDetected(true);
-          }
+          // if (response.data.leader_is_down) {
+          //   setFatalCrashDetected(true);
+          // }
         } catch (err) {
           console.error("Failed to hit leader_is_down_flag", err);
         }
@@ -130,12 +131,13 @@ const DevicesSystemSidebar = ({ collapsed }) => {
 
   const reElectLeader = async () => {
     try {
-      await axios.post(
-        `${API_BASE}/election/start?force_remove=${leaderDevice.ip}`,
-      );
+      console.log("Re-electing leader, forcing removal of:", leaderDevice);
+      // await axios.post(
+      //   `${API_BASE}/election/start?force_remove=${leaderDevice.ip}`,
+      // );
 
-      setShowLeaderDownModal(false);
-      setLeaderElected(false); // backend will broadcast new leader
+      // setShowLeaderDownModal(false);
+      // setLeaderElected(false); // backend will broadcast new leader
     } catch (err) {
       console.error("Leader re-election failed", err);
     }
