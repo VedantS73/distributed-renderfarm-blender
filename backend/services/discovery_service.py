@@ -264,7 +264,7 @@ class NetworkDiscoveryService:
                         print(f"[{self.local_ip}] Device {device['name']} ({ip}) is stale")
 
                 for stale_ip in stale_devices:
-                    del self.discovered_devices[stale_ip]
+                    # del self.discovered_devices[stale_ip]
                     print(f"[{self.local_ip}] Removed stale device: {stale_ip}")
 
                     if stale_ip == self.current_leader:
@@ -310,7 +310,7 @@ class NetworkDiscoveryService:
                 if metadata.get("status") == "in_progress":
                     job_id = job_folder.name
                     response = requests.post(
-                        f"http://{self.local_ip}:5050/api/device/leader_is_down_flag",
+                        f"http://{self.local_ip}:5050/api/leader_is_down_flag",
                         json={"job_id": job_id, "ip": leader_ip},
                         timeout=30
                     )
@@ -357,8 +357,6 @@ class NetworkDiscoveryService:
                 "resource_score": self.discovered_devices[ip]['resource_score']
             })
         return all_nodes
-
-    
 
     def finalize_job_if_committed(self, job_id):
         """Called after /worker/submit-job to apply any already-received ordered JOB_COMMIT."""
