@@ -60,6 +60,9 @@ def node_disconnected():
 @api.post("/leader_is_down_flag")
 def leader_is_down_flag():
     crashed_leader_ip = False
+
+    print("Leader is down! Restarting election")
+    # Find ongoing jobs where you are the client
     for job_id in os.listdir(JOBS_DIR):
         job_path = os.path.join(JOBS_DIR, job_id)
         metadata_path = os.path.join(job_path, "metadata.json")
@@ -72,8 +75,17 @@ def leader_is_down_flag():
                 metadata = json.load(f)
             
             print("Metadata loaded")
-            # 2. Check if job is in progress and owned by this node
-            if metadata.get("status") == "in_progress":
+            # 2. Check if job is in progress and you are the client of this node
+            if (metadata.get("status") != "completed_video") or (metadata.get("status") != "canceled") :
+                client_ip = metadata.get("initiator_client_ip")
+                if discovery.local_ip == client_ip:
+                    # Start leader election again
+                    leader_ip = metadata.get("leader_ip")
+                    discovery.pop_leader(leader_ip)
+                    print("Election start requested as current leader disconnected")
+                    print("Current discovered devices:", discovery.get_devices())
+                    discovery.initiate_election()
+
                 metadata["status"] = "canceled"
                 crashed_leader_ip = True
                 with open(metadata_path, "w", encoding="utf-8") as f:
