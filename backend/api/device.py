@@ -1,8 +1,9 @@
 import os
 from flask import Blueprint, jsonify, request, json
 import psutil, shutil
-from backend.shared.state import discovery
+from backend.shared.state import blender, discovery
 import requests
+import time
 
 api = Blueprint("device_api", __name__)
 JOBS_DIR = "jobs"
@@ -89,12 +90,58 @@ def leader_is_down_flag():
                     print("Current discovered devices:", discovery.get_devices())
                     discovery.initiate_election()
 
-                    # Cancelling job
-                    metadata["status"] = "canceled"
-                    crashed_leader_ip = True
-                    with open(metadata_path, "w", encoding="utf-8") as f:
-                        json.dump(metadata, f, indent=2)
-                
+                    #print("Election Active. Waiting to be done")
+                    while(discovery.election_active == True):
+                        print("Election Active. Waiting to be done")
+                        time.sleep(1)
+
+                    
+
+                    election_status = discovery.get_election_status()
+                    new_leader_ip = election_status.get("current_leader")
+
+                    if not new_leader_ip:
+                        return jsonify({"error": "No leader found in the network"}), 500
+                    
+                    print("Election Finished. Passing job to new leader ", new_leader_ip)
+
+                    new_job_url = f"http://{client_ip}:5050/api/jobs/create"
+
+                    filename = metadata.get("filename")
+
+                    print("New job created with same blend file")
+
+                    blend_file_path = os.path.join(job_path, filename)
+                    analysis_result = blender.analyze(blend_file_path)
+                    try:
+                        with open(blend_file_path, "rb") as f:
+                            files = {
+                                "file": (filename, f, "application/octet-stream")
+                            }
+                            response = requests.post(new_job_url, files = files, metadata = analysis_result, timeout = 10)
+
+                        if response.status_code != 201:
+                            return jsonify({
+                                "error": "Leader rejected job",
+                                "details": response.text
+                            }), 502
+
+                        return jsonify({
+                            "message": "Job successfully forwarded to leader",
+                            "leader": leader_ip
+                        }), 201
+                    
+                        
+                        
+
+                    except requests.RequestException as e:
+                        return jsonify({"error": str(e)}), 502
+
+            # Cancelling job
+            metadata["status"] = "cancelled"
+            crashed_leader_ip = True
+            with open(metadata_path, "w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2)    
         except Exception as e:
             print(f"[WARN] Failed processing {metadata_path}: {e}")
             
