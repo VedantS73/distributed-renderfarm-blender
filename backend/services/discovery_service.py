@@ -170,7 +170,12 @@ class NetworkDiscoveryService:
                 self.current_score = self.get_resource_score()
                 msg = f"DISCOVER:{self.pc_name}:{self.local_ip}:{self.current_score}:{self.my_role}"
                 for addr in self.get_broadcast_addresses():
-                    self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+                    if addr.startswith('255') or addr.startswith('127'):
+                        continue
+                    try:
+                        self.socket.sendto(msg.encode(), (addr, self.broadcast_port))
+                    except:
+                        pass
                 
                 print(f"SENDER => detected {self.pc_name} : {self.local_ip}")
                 time.sleep(3)
