@@ -110,7 +110,7 @@ def notify_node_disconnection():
                     print("*"*50)
                     print(devices)
                     print("*"*50)
-                    discovery.broadcast_control_message("CANCEL_ALL", {})
+                    discovery.broadcast_control_message("STOP_RENDER", {})
 
                 # WORKER CASE
                 else:

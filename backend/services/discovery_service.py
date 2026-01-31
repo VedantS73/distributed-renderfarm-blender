@@ -779,6 +779,7 @@ class NetworkDiscoveryService:
 
             elif msg_type == "CANCEL_JOB":
                 job_id = payload.get("job_id")
+                print("CANCEL_JOB triggered. Cancelling rendering")
                 if job_id:
                     from backend.api.worker import cancel_job_local
                     cancel_job_local(job_id=job_id)
