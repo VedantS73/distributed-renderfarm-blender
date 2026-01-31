@@ -233,10 +233,10 @@ class MetadataJsonHandler(FileSystemEventHandler):
                         shutil.copytree(old_renders_path, new_renders_path, dirs_exist_ok=True)
                         print(f"[+] Copied renders from {old_renders_path} to {new_renders_path} for reassigned job {job_folder}")
                     
-                    self.on_job_completed(job_folder, new_data)
-                    new_data["status"] = "completed_video"
-                    with open(new_metadata_path, "w", encoding="utf-8") as f:
-                        json.dump(new_data, f, indent=4)
+                    # self.on_job_completed(job_folder, new_data)
+                    # new_data["status"] = "completed_video"
+                    # with open(new_metadata_path, "w", encoding="utf-8") as f:
+                    #     json.dump(new_data, f, indent=4)
 
                     old_metadata_path = os.path.join(WATCH_DIR, old_job_folder, JSON_FILENAME)
                     try:

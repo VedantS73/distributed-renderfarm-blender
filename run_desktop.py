@@ -8,7 +8,6 @@ def run_server():
    app = create_app()
    app.run(host="0.0.0.0", port=5050, debug=False, use_reloader=False)
 
-
 if __name__ == "__main__":
    # Start backend in background thread
    server_thread = threading.Thread(target=run_server, daemon=True)
@@ -27,4 +26,4 @@ if __name__ == "__main__":
        frameless=False,
    )
 
-   webview.start(icon="client/public/logo.png", debug=True)
+   webview.start(icon="client/public/logo.png")
