@@ -889,6 +889,7 @@ class NetworkDiscoveryService:
         mid_uid = (mid_score, mid_ip)
         my_uid = (self.current_score, self.local_ip)
         
+        print("LCR Received UUID ", mid_uid, ". My UUID ", my_uid)
         if is_leader:
             self.current_leader = mid_ip
             self._control_manager_kick()
