@@ -87,6 +87,9 @@ def leader_is_down_flag():
                     discovery.pop_leader(leader_ip)
                     print("Election start requested as current leader disconnected")
                     print("Current discovered devices:", discovery.get_devices())
+
+                    # Waiting before starting election
+                    time.sleep(2)
                     discovery.initiate_election()
 
                     #print("Election Active. Waiting to be done")
