@@ -167,11 +167,10 @@ def notify_node_disconnection():
                         with open(new_metadata_path, "w", encoding="utf-8") as f:
                             json.dump(metadata, f, indent=2)
                         
-                        for job_worker_ip, _ in metadata['jobs'].items():
-                            print(f"Notifying worker {job_worker_ip} about reassigned frames for job {new_job_id}.")
-                            requests.post(f"http://localhost:5050/api/jobs/broadcast-to-workers", json={
-                                "uuid": new_job_id,
-                            })
+                        # Using broadcast-to-workers API to send job to workers
+                        requests.post(f"http://localhost:5050/api/jobs/broadcast-to-workers", json={
+                            "uuid": new_job_id,
+                        })
 
                         affected_jobs.append(new_job_id)
                     else:
