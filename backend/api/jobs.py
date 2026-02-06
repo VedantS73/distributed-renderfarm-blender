@@ -229,6 +229,7 @@ def broadcast_job_to_workers():
                 new_jobs.pop(old_key, None)
             idx+=1
 
+        print("New Job keys: " + new_jobs)
         metadata["jobs"] = new_jobs
 
         # Write back updated metadata
