@@ -21,7 +21,7 @@ export default function ElectionPage() {
       const response = await fetch(`${API_BASE}/election/status`);
       const data = await response.json();
 
-      if (data.current_leader && data.election_results) {
+      if (data.current_leader) {
         console.log("Election already completed.");
         setElectionActive(true);
         setLeader(data.current_leader);

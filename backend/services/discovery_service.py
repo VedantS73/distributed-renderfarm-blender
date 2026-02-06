@@ -397,7 +397,7 @@ class NetworkDiscoveryService:
             time.sleep(3)
     
     def calculate_ring_topology(self):
-        print("Calculating ring topology with devices: ", self.discovered_devices)
+        # print("Calculating ring topology with devices: ", self.discovered_devices)
         all_nodes = sorted(self.discovered_devices.keys())
         try:
             my_index = all_nodes.index(self.local_ip)

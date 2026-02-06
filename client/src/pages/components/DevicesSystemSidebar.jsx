@@ -9,7 +9,6 @@ import {
 import { Modal, Button } from "antd";
 import { ExclamationCircleOutlined } from "@ant-design/icons";
 import { useEffect, useState } from "react";
-import axios from "axios";
 
 const { Text } = Typography;
 
