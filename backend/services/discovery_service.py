@@ -561,6 +561,7 @@ class NetworkDiscoveryService:
             return False, None, "Not leader or sequencer not running"
         try:
             seq = self._sequencer_server.broadcast_control(msg_type, payload or {})
+            print(msg_type,"assigned seq:", seq)
             return True, seq, "Sent"
         except Exception as e:
             return False, None, str(e)
@@ -571,6 +572,8 @@ class NetworkDiscoveryService:
         try:
             msg_type = msg.get("type")
             payload = msg.get("payload") or {}
+            seq = msg.get("seq")
+            print(msg_type,"rcvd seq:", seq)
 
             if msg_type == "JOB_COMMIT":
                 print("JOB_COMMIT received")
