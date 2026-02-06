@@ -319,14 +319,23 @@ class NetworkDiscoveryService:
                         print(f"[{self.local_ip}] Device {device['name']} ({ip}) is stale")
 
                 for stale_ip in stale_devices:
-                    #del self.discovered_devices[stale_ip]
-                    print(f"[{self.local_ip}] Removed stale device: {stale_ip}")
 
-                    if stale_ip == self.current_leader:
-                        leader_went_down = True
-                        down_leader_ip = stale_ip
+                    # First check a status
+                    resp = requests.get(f"http://{stale_ip}:5050/api/status", timeout=5)
+
+                    if resp.status_code == 200:
+                        print(f"[{self.local_ip}] Stale device {stale_ip} is actually alive. Keeping it.")
+                        continue
                     else:
-                        requests.post(f"http://{self.current_leader}:5050/api/election/notify_node_disconnection", json={"ip": stale_ip})
+                        #del self.discovered_devices[stale_ip]
+                        print(f"[{self.local_ip}] Removed stale device: {stale_ip}")
+
+                        if stale_ip == self.current_leader:
+                            leader_went_down = True
+                            down_leader_ip = stale_ip
+                        else:
+                            if (self.current_leader):
+                                requests.post(f"http://{self.current_leader}:5050/api/election/notify_node_disconnection", json={"ip": stale_ip})
 
                 # Recalculate topology ONCE
                 if stale_devices:
