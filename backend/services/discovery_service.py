@@ -53,6 +53,9 @@ class NetworkDiscoveryService:
         # Ordered commit tracking (JOB_COMMIT arrives via Sequencer before/after files)
         self._pending_job_commits = set()
         self._pending_job_lock = threading.Lock()
+        
+        self._last_score_update_ts = 0
+        self._score_update_interval = 10  
 
     def get_local_ip(self):
         try:
@@ -169,7 +172,8 @@ class NetworkDiscoveryService:
         """Broadcasts UDP Beacons every 3 seconds"""
         while self.running:
             try:
-                self.current_score = self.get_resource_score()
+                self.update_resource_score_during_election()
+                
                 msg = f"DISCOVER:{self.pc_name}:{self.local_ip}:{self.current_score}:{self.my_role}"
                 for addr in self.get_broadcast_addresses():
                     if addr.startswith('255') or addr.startswith('127'):
@@ -268,15 +272,31 @@ class NetworkDiscoveryService:
                     
             except:
                 continue
+    
+    def update_resource_score_during_election(self):
+        now = time.time()
+
+        if self.election_active:
+            return
+
+        if now - self._last_score_update_ts >= self._score_update_interval:
+            self.current_score = self.get_resource_score()
+            self._last_score_update_ts = now
 
     def add_device(self, name, ip, score, role="Undefined"):
-        self.discovered_devices[ip] = {
-            "name": name,
-            "ip": ip,
-            "resource_score": score,
-            "last_seen": int(time.time()),
-            "my_role": role
-        }
+        if ip in self.discovered_devices:
+            self.discovered_devices[ip]["last_seen"] = int(time.time())
+            self.discovered_devices[ip]["my_role"] = role
+            if not self.election_active:
+                self.discovered_devices[ip]["resource_score"] = score
+        else:
+            self.discovered_devices[ip] = {
+                "name": name,
+                "ip": ip,
+                "resource_score": score,
+                "last_seen": int(time.time()),
+                "my_role": role
+            }
 
     def get_devices(self):
         return list(self.discovered_devices.values())
