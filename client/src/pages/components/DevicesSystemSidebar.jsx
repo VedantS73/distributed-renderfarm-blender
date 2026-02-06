@@ -6,20 +6,10 @@ import {
   CrownFilled,
   BorderInnerOutlined,
 } from "@ant-design/icons";
-import { Modal, Button } from "antd";
-import { ExclamationCircleOutlined } from "@ant-design/icons";
-import { useEffect, useState } from "react";
 
 const { Text } = Typography;
 
 const DevicesSystemSidebar = ({ collapsed }) => {
-  const API_BASE = "http://localhost:5050/api";
-  const [leaderElected, setLeaderElected] = useState(false);
-  const [showLeaderDownModal, setShowLeaderDownModal] = useState(false);
-  const [leaderDevice, setLeaderDevice] = useState(null);
-  const [previousDeviceStatus, setPreviousDeviceStatus] = useState({});
-  const [fatalCrashDetected, setFatalCrashDetected] = useState(false);
-
   const {
     token: { colorText, colorBorder },
   } = theme.useToken();
@@ -42,103 +32,6 @@ const DevicesSystemSidebar = ({ collapsed }) => {
       return { status: "success", text: "Online" };
     } else {
       return { status: "error", text: "Offline" };
-    }
-  };
-
-  useEffect(() => {
-    if (!leaderElected) return;
-    console.log("Checking leader device status...");
-    const leader = devices.find((d) => d.my_role === "Leader");
-    if (!leader) return;
-    console.log("Leader device found:", leader);
-
-    const online = isOnline(leader);
-
-    if (!online) {
-      setLeaderDevice(leader);
-      setShowLeaderDownModal(true);
-      console.log("Leader device is offline:", leader);
-      const notifyLeaderDown = async () => {
-        try {
-          console.log("Notifying backend of leader down...");
-          // const response = await axios.post(
-          //   `${API_BASE}/leader_is_down_flag`
-          // );
-
-          // if (response.data.leader_is_down) {
-          //   setFatalCrashDetected(true);
-          // }
-        } catch (err) {
-          console.error("Failed to hit leader_is_down_flag", err);
-        }
-      };
-
-      notifyLeaderDown();
-    }
-  }, [devices, leaderElected]);
-
-  useEffect(() => {
-    if (devices.some((d) => d.my_role === "Leader")) {
-      setLeaderElected(true);
-    }
-  }, [devices]);
-
-  // Track device status and detect when non-leader devices go offline
-  useEffect(() => {
-    const currentStatus = {};
-
-    devices.forEach((device) => {
-      const deviceKey = `${device.name}-${device.ip}`;
-      const isSelf =
-        device.name === localInfo.pcName && device.ip === localInfo.ip;
-      const online = isOnline(device);
-      const isLeader = device.my_role === "Leader";
-
-      currentStatus[deviceKey] = online;
-
-      // Check if device just went offline (was online before, now offline)
-      if (
-        !isSelf &&
-        !isLeader &&
-        previousDeviceStatus[deviceKey] === true &&
-        online === false
-      ) {
-        // Device just went offline, call the API
-        handleNodeDisconnected(device.ip, device.name);
-      }
-    });
-
-    setPreviousDeviceStatus(currentStatus);
-  }, [devices, localInfo]);
-
-  const handleNodeDisconnected = async (ip, name) => {
-    try {
-      // const response = await axios.post(`${API_BASE}/node_disconnected`, {
-      //   ip: ip,
-      // });
-
-      if (response.data.success) {
-        console.log(`Device ${name} (${ip}) removed from network`);
-      }
-    } catch (err) {
-      console.error(
-        `Failed to notify disconnection of device ${name} (${ip})`,
-        err,
-      );
-    }
-  };
-
-  const reElectLeader = async () => {
-    try {
-      console.log("Re-electing leader, forcing removal of:", leaderDevice);
-      // await axios.post(
-      //   `${API_BASE}/election/start?force_remove=${leaderDevice.ip}`,
-      // );
-
-      // setShowLeaderDownModal(false);
-      // setLeaderElected(false); // backend will broadcast new leader
-    } catch (err) {
-      console.error("Leader re-election failed", err);
     }
   };
 
@@ -343,53 +236,6 @@ const DevicesSystemSidebar = ({ collapsed }) => {
           ),
         }}
       />
-
-      {/* Leader Down Modal */}
-      <Modal
-        open={showLeaderDownModal}
-        title={
-          <span>
-            <ExclamationCircleOutlined
-              style={{ color: "#faad14", marginRight: 8 }}
-            />
-            Leader Offline
-          </span>
-        }
-        footer={
-          fatalCrashDetected ? (
-            <Text type="danger" key="crash-warning">
-              A fatal crash was detected on the leader device. Ongoing jobs may
-              have been canceled.
-            </Text>
-          ) : (
-            <>
-              <Button
-                key="cancel"
-                onClick={() => setShowLeaderDownModal(false)}
-              >
-                Ignore
-              </Button>
-              <Button
-                key="reelect"
-                type="primary"
-                danger
-                onClick={reElectLeader}
-              >
-                Re-Elect Leader
-              </Button>
-            </>
-          )
-        }
-        closable={false}
-      >
-        <Text>
-          The leader device <Text strong>{leaderDevice?.name}</Text> is offline.
-        </Text>
-        <br />
-        <Text type="secondary">
-          Network stability requires a new leader election.
-        </Text>
-      </Modal>
     </div>
   );
 };
