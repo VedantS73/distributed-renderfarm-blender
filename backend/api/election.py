@@ -30,7 +30,7 @@ def status():
         "running": discovery.running,
         "local_pc_name": discovery.pc_name,
         "local_ip": discovery.local_ip
-    })
+    }), 200
 
 @api.post("/clear")
 def clear():
