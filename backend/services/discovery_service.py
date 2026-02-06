@@ -319,7 +319,7 @@ class NetworkDiscoveryService:
                         print(f"[{self.local_ip}] Device {device['name']} ({ip}) is stale")
 
                 for stale_ip in stale_devices:
-                    # del self.discovered_devices[stale_ip]
+                    del self.discovered_devices[stale_ip]
                     print(f"[{self.local_ip}] Removed stale device: {stale_ip}")
 
                     if stale_ip == self.current_leader:
