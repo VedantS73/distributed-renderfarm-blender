@@ -346,9 +346,10 @@ def submit_frames():
     if not isinstance(remaining, int) or remaining <= 0:
         return jsonify({"error": "Invalid remaining_frames value"}), 400
 
-    print(f"[-] Received frame no {filename}, updating remaining frames {remaining}")
+    
     metadata["remaining_frames"] = remaining - 1
-
+    print(f"[-] Received frame no {filename}, updating remaining frames {remaining}")
+    
     # Optional: auto-finish job
     if metadata["remaining_frames"] == 0:
         metadata["status"] = "completed_frames"
