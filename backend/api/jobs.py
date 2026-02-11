@@ -319,11 +319,7 @@ def submit_frames():
     if not metadata_path.is_file():
         return jsonify({"error": "metadata.json not found"}), 400
     
-    # count number of files in renders directory
-    no_of_frames = 0
-    renders_dir = job_path / "renders"
-    if renders_dir.is_dir():
-        no_of_frames = len(list(renders_dir.glob("*.*")))
+    
 
     with metadata_path.open("r") as f:
         metadata = json.load(f)
@@ -346,6 +342,15 @@ def submit_frames():
     image_path = renders_dir / filename
     image.save(image_path)
 
+    # count number of files in renders directory
+    no_of_frames = 0
+    renders_dir = job_path / "renders"
+    if renders_dir.is_dir():
+        no_of_frames = len(list(renders_dir.glob("*.*")))
+
+    
+    print("Number of frames in folder : ", no_of_frames)
+    
     # 7. Update remaining_frames
     remaining = metadata.get("remaining_frames")
 
@@ -354,7 +359,6 @@ def submit_frames():
 
     
     metadata["remaining_frames"] = remaining - 1
-    print(f"[-] Received frame no {filename}, updating remaining frames {remaining}")
     
     # Optional: auto-finish job
     if metadata["remaining_frames"] == 0:
