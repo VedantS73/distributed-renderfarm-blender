@@ -326,24 +326,32 @@ class NetworkDiscoveryService:
                             print(f"[{self.local_ip}] Stale device {stale_ip} is actually alive. Keeping it.")
                             continue
                         else:
-                            # del self.discovered_devices[stale_ip]
+                            stale_ip_role = self.discovered_devices[stale_ip].get("my_role")
+                            del self.discovered_devices[stale_ip]
                             print(f"[{self.local_ip}] Removed stale device: {stale_ip}")
 
+                            # Recalculating ring topology
+                            self.calculate_ring_topology()
                             if stale_ip == self.current_leader:
                                 leader_went_down = True
                                 down_leader_ip = stale_ip
                             else:
                                 if (self.current_leader):
-                                    requests.post(f"http://{self.current_leader}:5050/api/election/notify_node_disconnection", json={"ip": stale_ip})
+                                    requests.post(f"http://{self.current_leader}:5050/api/election/notify_node_disconnection", json={"ip": stale_ip, "my_role" : stale_ip_role})
                     except (requests.Timeout, requests.RequestException):
                         print(f"[{self.local_ip}] Removed stale device: {stale_ip}")
+                        stale_ip_role = self.discovered_devices[stale_ip].get("my_role")
+                        del self.discovered_devices[stale_ip]
 
+                        # Recalculating ring topology
+                        self.calculate_ring_topology()
+                        
                         if stale_ip == self.current_leader:
                             leader_went_down = True
                             down_leader_ip = stale_ip
                         else:
                             if (self.current_leader):
-                                requests.post(f"http://{self.current_leader}:5050/api/election/notify_node_disconnection", json={"ip": stale_ip})
+                                requests.post(f"http://{self.current_leader}:5050/api/election/notify_node_disconnection", json={"ip": stale_ip, "my_role" : stale_ip_role})
 
                 # Recalculate topology ONCE
                 if stale_devices:

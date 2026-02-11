@@ -62,12 +62,8 @@ def notify_node_disconnection():
     print("/election/notify_node_disconnection called ======= STEP 2 TO CLIENT DISCONNECTION  =======")
     data = request.get_json()
     ip = data.get("ip")
-
-    if not discovery.discovered_devices.get(ip):
-        print(f"No device found with IP: {ip} or Device already removed")
-        return jsonify({"success": False, "message": f"No device found with IP: {ip} or Device already removed"}), 404
+    my_role = data.get("my_role")
     
-    my_role = discovery.discovered_devices.get(ip).get('my_role')
     print(f"Disconnected node role is: {my_role}")
 
     if not ip:
